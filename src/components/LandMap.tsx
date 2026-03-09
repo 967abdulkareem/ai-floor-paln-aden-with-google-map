@@ -168,17 +168,6 @@ export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMap
     mapRef.current = map;
   }, []);
 
-  if (loadError) {
-    return (
-      <div className="rounded-lg border p-8 text-center text-destructive">
-        <p className="font-semibold">Failed to load Google Maps</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Please check your API key (VITE_GOOGLE_MAPS_API_KEY) and ensure Maps JavaScript API & Drawing library are enabled.
-        </p>
-      </div>
-    );
-  }
-
   if (!isLoaded) {
     return (
       <div className="rounded-lg border flex items-center justify-center" style={{ height: 500 }}>
