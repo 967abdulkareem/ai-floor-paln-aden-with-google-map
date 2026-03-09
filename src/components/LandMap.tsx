@@ -1,10 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { GoogleMap, useJsApiLoader, DrawingManager, Polygon } from "@react-google-maps/api";
+import { GoogleMap, DrawingManager } from "@react-google-maps/api";
 import { Layers } from "lucide-react";
-
-const SANAA_CENTER = { lat: 15.3694, lng: 44.191 };
-const LIBRARIES: ("drawing")[] = ["drawing"];
 
 const DIRECTIONS_8 = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] as const;
 export type Direction8 = (typeof DIRECTIONS_8)[number];
