@@ -6,7 +6,7 @@ import { Layers } from "lucide-react";
 const DIRECTIONS_8 = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] as const;
 export type Direction8 = (typeof DIRECTIONS_8)[number];
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDvkqZ9qd5kNp60pLt_qY5YMSb8xB88bs4";
+const SANAA_CENTER = { lat: 15.3694, lng: 44.191 };
 
 function computeArea(path: google.maps.LatLng[]): number {
   return google.maps.geometry
