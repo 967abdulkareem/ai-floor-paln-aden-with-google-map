@@ -1,15 +1,12 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { GoogleMap, useJsApiLoader, DrawingManager, Polygon } from "@react-google-maps/api";
+import { GoogleMap, DrawingManager } from "@react-google-maps/api";
 import { Layers } from "lucide-react";
-
-const SANAA_CENTER = { lat: 15.3694, lng: 44.191 };
-const LIBRARIES: ("drawing")[] = ["drawing"];
 
 const DIRECTIONS_8 = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] as const;
 export type Direction8 = (typeof DIRECTIONS_8)[number];
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDvkqZ9qd5kNp60pLt_qY5YMSb8xB88bs4";
+const SANAA_CENTER = { lat: 15.3694, lng: 44.191 };
 
 function computeArea(path: google.maps.LatLng[]): number {
   return google.maps.geometry
@@ -89,10 +86,21 @@ interface LandMapProps {
 type MapTypeId = "satellite" | "roadmap" | "hybrid";
 
 export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMapProps) {
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: LIBRARIES,
-  });
+  const [isLoaded, setIsLoaded] = useState(!!window.google?.maps);
+
+  useEffect(() => {
+    if (window.google?.maps) {
+      setIsLoaded(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (window.google?.maps) {
+        setIsLoaded(true);
+        clearInterval(interval);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
@@ -159,17 +167,6 @@ export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMap
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
   }, []);
-
-  if (loadError) {
-    return (
-      <div className="rounded-lg border p-8 text-center text-destructive">
-        <p className="font-semibold">Failed to load Google Maps</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Please check your API key (VITE_GOOGLE_MAPS_API_KEY) and ensure Maps JavaScript API & Drawing library are enabled.
-        </p>
-      </div>
-    );
-  }
 
   if (!isLoaded) {
     return (
