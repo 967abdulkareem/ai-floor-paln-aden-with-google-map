@@ -86,10 +86,21 @@ interface LandMapProps {
 type MapTypeId = "satellite" | "roadmap" | "hybrid";
 
 export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMapProps) {
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: LIBRARIES,
-  });
+  const [isLoaded, setIsLoaded] = useState(!!window.google?.maps);
+
+  useEffect(() => {
+    if (window.google?.maps) {
+      setIsLoaded(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (window.google?.maps) {
+        setIsLoaded(true);
+        clearInterval(interval);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
