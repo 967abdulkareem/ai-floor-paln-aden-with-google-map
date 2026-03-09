@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import StepperInput from "./StepperInput";
-import type { Direction8 } from "./LandMap";
+import type { Direction8 } from "./LandMapStable";
 
 export interface FormData {
   streetSide: string;

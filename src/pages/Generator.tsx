@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import LandMap, { type Direction8 } from "@/components/LandMap";
+import LandMap, { type Direction8 } from "@/components/LandMapStable";
 import RequirementsForm, { type FormData } from "@/components/RequirementsForm";
 import type { FloorPlanFormData } from "@/lib/api";
 import TrialResult from "@/components/TrialResult";
