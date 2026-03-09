@@ -1,23 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import "leaflet-draw";
-import "leaflet-draw/dist/leaflet.draw.css";
-import { Map, Layers } from "lucide-react";
+import { GoogleMap, useJsApiLoader, DrawingManager, Polygon } from "@react-google-maps/api";
+import { Layers } from "lucide-react";
 
-const SANAA_CENTER: L.LatLngExpression = [15.3694, 44.191];
+const SANAA_CENTER = { lat: 15.3694, lng: 44.191 };
+const LIBRARIES: ("drawing")[] = ["drawing"];
 
 const DIRECTIONS_8 = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] as const;
-export type Direction8 = typeof DIRECTIONS_8[number];
+export type Direction8 = (typeof DIRECTIONS_8)[number];
 
-function computeArea(latlngs: L.LatLng[]): number {
-  if (latlngs.length < 3) return 0;
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+function computeArea(path: google.maps.LatLng[]): number {
+  return google.maps.geometry
+    ? google.maps.geometry.spherical.computeArea(path)
+    : manualComputeArea(path);
+}
+
+function manualComputeArea(path: google.maps.LatLng[]): number {
+  if (path.length < 3) return 0;
+  const latlngs = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
   const centroid = latlngs.reduce(
     (acc, ll) => ({ lat: acc.lat + ll.lat / latlngs.length, lng: acc.lng + ll.lng / latlngs.length }),
     { lat: 0, lng: 0 }
   );
-  const toMeters = (ll: L.LatLng) => {
+  const toMeters = (ll: { lat: number; lng: number }) => {
     const R = 6371000;
     const dLat = ((ll.lat - centroid.lat) * Math.PI) / 180;
     const dLng = ((ll.lng - centroid.lng) * Math.PI) / 180;
@@ -35,7 +42,8 @@ function computeArea(latlngs: L.LatLng[]): number {
   return Math.abs(area / 2);
 }
 
-function detectStreetSide(latlngs: L.LatLng[]): Direction8 {
+function detectStreetSide(path: google.maps.LatLng[]): Direction8 {
+  const latlngs = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
   if (latlngs.length < 3) return "South";
   const centroid = latlngs.reduce(
     (acc, ll) => ({ lat: acc.lat + ll.lat / latlngs.length, lng: acc.lng + ll.lng / latlngs.length }),
@@ -57,193 +65,158 @@ function detectStreetSide(latlngs: L.LatLng[]): Direction8 {
   const midLat = (latlngs[bestEdge].lat + latlngs[j].lat) / 2;
   const midLng = (latlngs[bestEdge].lng + latlngs[j].lng) / 2;
   const angle = Math.atan2(midLat - centroid.lat, midLng - centroid.lng) * (180 / Math.PI);
-  const normalized = ((angle + 360 + 22.5) % 360);
+  const normalized = (angle + 360 + 22.5) % 360;
   const idx = Math.floor(normalized / 45);
   const dirMap: Direction8[] = ["East", "North-East", "North", "North-West", "West", "South-West", "South", "South-East"];
   return dirMap[idx] || "South";
 }
+
+const polygonOptions: google.maps.PolygonOptions = {
+  fillColor: "#FF6B35",
+  fillOpacity: 0.15,
+  strokeColor: "#FF6B35",
+  strokeOpacity: 0.9,
+  strokeWeight: 2,
+  editable: true,
+  draggable: false,
+};
 
 interface LandMapProps {
   onPolygonComplete: (coords: [number, number][], areaM2: number, streetSide: Direction8) => void;
   onPolygonCleared: () => void;
 }
 
+type MapTypeId = "satellite" | "roadmap" | "hybrid";
+
 export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const drawnItemsRef = useRef<L.FeatureGroup>(new L.FeatureGroup());
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: LIBRARIES,
+  });
+
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const polygonRef = useRef<google.maps.Polygon | null>(null);
   const [landInfo, setLandInfo] = useState<{ area: number; points: number; streetSide: Direction8 } | null>(null);
-  const [mapMode, setMapMode] = useState<"satellite" | "street" | "hybrid">("satellite");
-  const satelliteLayerRef = useRef<L.TileLayer | null>(null);
-  const streetLayerRef = useRef<L.TileLayer | null>(null);
-  const labelsLayerRef = useRef<L.TileLayer | null>(null);
+  const [mapTypeId, setMapTypeId] = useState<MapTypeId>("satellite");
+  const [polygonPath, setPolygonPath] = useState<google.maps.LatLngLiteral[] | null>(null);
+
+  const processPolygon = useCallback(
+    (path: google.maps.LatLng[]) => {
+      const coords: [number, number][] = path.map((p) => [p.lat(), p.lng()]);
+      const areaM2 = computeArea(path);
+      const streetSide = detectStreetSide(path);
+      setLandInfo({ area: Math.round(areaM2 * 100) / 100, points: coords.length, streetSide });
+      setPolygonPath(path.map((p) => ({ lat: p.lat(), lng: p.lng() })));
+      onPolygonComplete(coords, areaM2, streetSide);
+    },
+    [onPolygonComplete]
+  );
+
+  const onPolygonCompleteHandler = useCallback(
+    (polygon: google.maps.Polygon) => {
+      // Remove previous polygon
+      if (polygonRef.current) {
+        polygonRef.current.setMap(null);
+      }
+      polygonRef.current = polygon;
+
+      const path = polygon.getPath();
+      processPolygon(path.getArray());
+
+      // Listen for edits
+      const updateHandler = () => {
+        const updatedPath = polygon.getPath();
+        processPolygon(updatedPath.getArray());
+      };
+      google.maps.event.addListener(path, "set_at", updateHandler);
+      google.maps.event.addListener(path, "insert_at", updateHandler);
+      google.maps.event.addListener(path, "remove_at", updateHandler);
+
+      // Hide the drawing manager overlay polygon (we manage our own)
+      polygon.setOptions(polygonOptions);
+    },
+    [processPolygon]
+  );
 
   const clearPolygon = useCallback(() => {
-    drawnItemsRef.current.clearLayers();
+    if (polygonRef.current) {
+      polygonRef.current.setMap(null);
+      polygonRef.current = null;
+    }
+    setPolygonPath(null);
     setLandInfo(null);
     onPolygonCleared();
   }, [onPolygonCleared]);
 
-  const removeLayers = useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (satelliteLayerRef.current) map.removeLayer(satelliteLayerRef.current);
-    if (streetLayerRef.current) map.removeLayer(streetLayerRef.current);
-    if (labelsLayerRef.current) map.removeLayer(labelsLayerRef.current);
-  }, []);
-
-  const getSatelliteLayer = () => {
-    if (!satelliteLayerRef.current) {
-      satelliteLayerRef.current = L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { attribution: "Tiles © Esri", maxZoom: 20 }
-      );
-    }
-    return satelliteLayerRef.current;
-  };
-
-  const getStreetLayer = () => {
-    if (!streetLayerRef.current) {
-      streetLayerRef.current = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { attribution: "© OpenStreetMap contributors", maxZoom: 20 }
-      );
-    }
-    return streetLayerRef.current;
-  };
-
-  const getLabelsLayer = () => {
-    if (!labelsLayerRef.current) {
-      labelsLayerRef.current = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { maxZoom: 20, opacity: 0.4 }
-      );
-    }
-    return labelsLayerRef.current;
-  };
-
   const toggleMapView = useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    removeLayers();
-
-    if (mapMode === "satellite") {
-      // -> street
-      getStreetLayer().addTo(map);
-      setMapMode("street");
-    } else if (mapMode === "street") {
-      // -> hybrid (satellite + labels)
-      getSatelliteLayer().addTo(map);
-      getLabelsLayer().addTo(map);
-      setMapMode("hybrid");
-    } else {
-      // -> satellite
-      getSatelliteLayer().addTo(map);
-      setMapMode("satellite");
-    }
-  }, [mapMode, removeLayers]);
-
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    const map = L.map(mapContainerRef.current, {
-      center: SANAA_CENTER,
-      zoom: 18,
-      zoomControl: true,
+    setMapTypeId((prev) => {
+      if (prev === "satellite") return "roadmap";
+      if (prev === "roadmap") return "hybrid";
+      return "satellite";
     });
-    mapRef.current = map;
-
-    // Default: satellite
-    satelliteLayerRef.current = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      { attribution: "Tiles © Esri", maxZoom: 20 }
-    ).addTo(map);
-
-    L.control.scale({ imperial: false, metric: true, position: "bottomleft" }).addTo(map);
-
-    drawnItemsRef.current.addTo(map);
-
-    const polygonStyle = {
-      color: "#FF6B35",
-      fillColor: "#FF6B35",
-      fillOpacity: 0.15,
-      weight: 2,
-      opacity: 0.9,
-    };
-
-    const drawControl = new L.Control.Draw({
-      position: "topright",
-      draw: {
-        polygon: { allowIntersection: false, shapeOptions: polygonStyle },
-        rectangle: { shapeOptions: polygonStyle },
-        circle: false,
-        circlemarker: false,
-        marker: false,
-        polyline: false,
-      },
-      edit: {
-        featureGroup: drawnItemsRef.current,
-        remove: true,
-        edit: {} as any,
-      },
-    });
-    map.addControl(drawControl);
-
-    map.on(L.Draw.Event.CREATED, (e: any) => {
-      drawnItemsRef.current.clearLayers();
-      const layer = e.layer as L.Polygon;
-      drawnItemsRef.current.addLayer(layer);
-      const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-      const coords: [number, number][] = latlngs.map((ll) => [ll.lat, ll.lng]);
-      const areaM2 = computeArea(latlngs);
-      const streetSide = detectStreetSide(latlngs);
-      setLandInfo({ area: Math.round(areaM2 * 100) / 100, points: coords.length, streetSide });
-      onPolygonComplete(coords, areaM2, streetSide);
-    });
-
-    map.on(L.Draw.Event.EDITED, (e: any) => {
-      const layers = e.layers as L.LayerGroup;
-      layers.eachLayer((layer: any) => {
-        const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-        const coords: [number, number][] = latlngs.map((ll: L.LatLng) => [ll.lat, ll.lng]);
-        const areaM2 = computeArea(latlngs);
-        const streetSide = detectStreetSide(latlngs);
-        setLandInfo({ area: Math.round(areaM2 * 100) / 100, points: coords.length, streetSide });
-        onPolygonComplete(coords, areaM2, streetSide);
-      });
-    });
-
-    map.on(L.Draw.Event.DELETED, () => {
-      if (drawnItemsRef.current.getLayers().length === 0) {
-        setLandInfo(null);
-        onPolygonCleared();
-      }
-    });
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  if (loadError) {
+    return (
+      <div className="rounded-lg border p-8 text-center text-destructive">
+        <p className="font-semibold">Failed to load Google Maps</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Please check your API key (VITE_GOOGLE_MAPS_API_KEY) and ensure Maps JavaScript API & Drawing library are enabled.
+        </p>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="rounded-lg border flex items-center justify-center" style={{ height: 500 }}>
+        <p className="text-muted-foreground">Loading map…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
       <div className="relative">
-        <div
-          ref={mapContainerRef}
-          className="rounded-lg overflow-hidden border"
-          style={{ width: "100%", height: "500px" }}
-        />
-        {/* Map layer toggle button */}
+        <GoogleMap
+          mapContainerClassName="rounded-lg overflow-hidden border"
+          mapContainerStyle={{ width: "100%", height: "500px" }}
+          center={SANAA_CENTER}
+          zoom={18}
+          mapTypeId={mapTypeId}
+          onLoad={onMapLoad}
+          options={{
+            scaleControl: true,
+            mapTypeControl: false,
+            fullscreenControl: false,
+            streetViewControl: false,
+          }}
+        >
+          <DrawingManager
+            options={{
+              drawingControl: true,
+              drawingControlOptions: {
+                position: google.maps.ControlPosition.TOP_RIGHT,
+                drawingModes: [google.maps.drawing.OverlayType.POLYGON],
+              },
+              polygonOptions,
+            }}
+            onPolygonComplete={onPolygonCompleteHandler}
+          />
+        </GoogleMap>
+
         <Button
           variant="secondary"
           size="sm"
-          className="absolute top-3 left-3 z-[1000] shadow-md gap-1.5"
+          className="absolute top-3 left-3 z-[5] shadow-md gap-1.5"
           onClick={toggleMapView}
         >
           <Layers className="h-4 w-4" />
-          {mapMode === "satellite" ? "Street" : mapMode === "street" ? "Hybrid" : "Satellite"}
+          {mapTypeId === "satellite" ? "Street" : mapTypeId === "roadmap" ? "Hybrid" : "Satellite"}
         </Button>
       </div>
 
