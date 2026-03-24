@@ -1,5 +1,6 @@
 interface CalculationsPanelProps {
   areaM2: number;
+  maxBuildableM2: number;
   buildableRect: {
     rectWidthM: number;
     rectDepthM: number;
@@ -7,15 +8,17 @@ interface CalculationsPanelProps {
     adjustedForCoverage: boolean;
   };
   buildingHeightM: number;
+  maxFloors: number;
   streetSide: string;
 }
 
 const rows = (props: CalculationsPanelProps) => [
   { icon: "📐", en: "Land Area", ar: "مساحة الأرض", value: `${props.areaM2.toFixed(1)} m²` },
-  { icon: "🏗️", en: "Max Buildable (70%)", ar: "أقصى بناء", value: `${(props.areaM2 * 0.7).toFixed(1)} m²` },
+  { icon: "🏗️", en: "Max Buildable (70%)", ar: "أقصى بناء", value: `${props.maxBuildableM2.toFixed(1)} m²` },
   { icon: "📏", en: "Buildable Rectangle", ar: "مستطيل البناء", value: `${props.buildableRect.rectWidthM}m × ${props.buildableRect.rectDepthM}m` },
   { icon: "📐", en: "Rectangle Area", ar: "مساحة المستطيل", value: `${props.buildableRect.rectAreaM2} m²` },
   { icon: "🏢", en: "Max Building Height", ar: "أقصى ارتفاع", value: `${props.buildingHeightM} m` },
+  { icon: "🏗️", en: "Max Floors", ar: "عدد الطوابق", value: `${props.maxFloors} floors / طوابق` },
   { icon: "🛣️", en: "Street Side", ar: "جهة الشارع", value: props.streetSide },
 ];
 
