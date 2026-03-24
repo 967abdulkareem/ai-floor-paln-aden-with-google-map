@@ -17,13 +17,13 @@ export default function Index() {
       <div className="max-w-2xl w-full text-center space-y-8">
         <div className="space-y-4">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-            Munasib <span className="text-primary/70">/ مناسب</span>
+            اعمار <span className="text-primary/70">Emmar</span>
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            AI-Assisted Residential Floor Plan Generation with Cultural, Environmental, and Regulatory Constraints: A Case Study for Sana'a, Yemen
+            AI-Assisted Residential Floor Plan Generation with Cultural, Environmental, and Regulatory Constraints: A Case Study for Aden, Yemen
           </p>
           <p className="text-sm text-muted-foreground" dir="rtl">
-            توليد مخططات سكنية بمساعدة الذكاء الاصطناعي مع مراعاة القيود الثقافية والبيئية والتنظيمية: دراسة حالة لصنعاء، اليمن
+            توليد مخططات سكنية بمساعدة الذكاء الاصطناعي مع مراعاة القيود الثقافية والبيئية والتنظيمية: دراسة حالة لعدن، اليمن
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export default function Index() {
       </div>
 
       <footer className="mt-12 text-center text-xs text-muted-foreground max-w-lg px-4">
-        Developed as part of academic research on AI-assisted architectural design for developing countries | Sana'a, Yemen
+        Developed as part of academic research on AI-assisted architectural design for developing countries | Aden, Yemen
       </footer>
     </div>
   );

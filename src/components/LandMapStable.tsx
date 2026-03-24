@@ -182,8 +182,8 @@ export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMap
         <GoogleMap
           mapContainerClassName="rounded-lg overflow-hidden border"
           mapContainerStyle={{ width: "100%", height: "500px" }}
-          center={SANAA_CENTER}
-          zoom={18}
+          center={ADEN_CENTER}
+          zoom={17}
           mapTypeId={mapTypeId}
           onLoad={onMapLoad}
           options={{
