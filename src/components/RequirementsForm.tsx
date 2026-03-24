@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import StepperInput from "./StepperInput";
-import type { Direction8 } from "./LandMapStable";
 
 export interface FormData {
   streetSide: string;
@@ -22,7 +21,7 @@ interface RequirementsFormProps {
   hasPolygon: boolean;
   onSubmit: (data: FormData) => void;
   isLoading: boolean;
-  detectedStreetSide?: Direction8;
+  detectedStreetSide?: string;
   isSmallPlot?: boolean;
   onStreetSideChange?: (side: string) => void;
   onStreetWidthChange?: (width: number) => void;
@@ -67,15 +66,16 @@ export default function RequirementsForm({
   };
 
   const handleStreetWidthChange = (value: number) => {
-    const clamped = Math.min(30, Math.max(4, value));
-    setStreetWidth(clamped);
-    onStreetWidthChange?.(clamped);
+    setStreetWidth(value);
+    onStreetWidthChange?.(value);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ streetSide, streetWidth, rooms, bathrooms, includeDiwan, includeOffice: false, userName });
   };
+
+  const isStreetWidthValid = streetWidth > 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -95,21 +95,27 @@ export default function RequirementsForm({
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          {detectedStreetSide ? `Auto-detected: ${detectedStreetSide} — you can change it` : "Which side of your land faces the main street?"}
+          {detectedStreetSide ? `Auto-detected: ${detectedStreetSide} — you can change this if needed` : "Which side of your land faces the main street?"}
         </p>
       </div>
 
-      {/* Street Width */}
+      {/* Street Width — free number input, no min/max constraints */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Street Width (m) / عرض الشارع</label>
-        <Input
-          type="number"
-          value={streetWidth}
-          onChange={(e) => handleStreetWidthChange(Number(e.target.value))}
-          min={4}
-          max={30}
-        />
-        <p className="text-xs text-muted-foreground">Approximate width of the street (4–30m)</p>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={streetWidth}
+            onChange={(e) => handleStreetWidthChange(parseFloat(e.target.value) || 0)}
+            placeholder="10"
+            min="0"
+            step="0.5"
+          />
+          <span className="text-sm text-muted-foreground whitespace-nowrap">meters / متر</span>
+        </div>
+        {!isStreetWidthValid && (
+          <p className="text-xs text-destructive">Street width must be greater than 0</p>
+        )}
       </div>
 
       {/* Bedrooms — conditional on plot size */}
@@ -163,8 +169,8 @@ export default function RequirementsForm({
         type="submit"
         size="lg"
         className="w-full"
-        disabled={!hasPolygon || isLoading}
-        title={!hasPolygon ? "Please draw your land boundary on the map first" : undefined}
+        disabled={!hasPolygon || isLoading || !isStreetWidthValid}
+        title={!hasPolygon ? "Please draw your land boundary on the map first" : !isStreetWidthValid ? "Enter a valid street width" : undefined}
       >
         {isLoading ? "Generating..." : "Generate Floor Plan / توليد المخطط"}
       </Button>
