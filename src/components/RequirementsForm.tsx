@@ -23,6 +23,9 @@ interface RequirementsFormProps {
   onSubmit: (data: FormData) => void;
   isLoading: boolean;
   detectedStreetSide?: Direction8;
+  isSmallPlot?: boolean;
+  onStreetSideChange?: (side: string) => void;
+  onStreetWidthChange?: (width: number) => void;
 }
 
 const DIRECTIONS = [
@@ -36,7 +39,15 @@ const DIRECTIONS = [
   { value: "North-West", label: "North-West / الشمال الغربي" },
 ];
 
-export default function RequirementsForm({ hasPolygon, onSubmit, isLoading, detectedStreetSide }: RequirementsFormProps) {
+export default function RequirementsForm({
+  hasPolygon,
+  onSubmit,
+  isLoading,
+  detectedStreetSide,
+  isSmallPlot = false,
+  onStreetSideChange,
+  onStreetWidthChange,
+}: RequirementsFormProps) {
   const [streetSide, setStreetSide] = useState("South");
   const [streetWidth, setStreetWidth] = useState(10);
   const [rooms, setRooms] = useState(3);
@@ -44,12 +55,22 @@ export default function RequirementsForm({ hasPolygon, onSubmit, isLoading, dete
   const [includeDiwan, setIncludeDiwan] = useState(true);
   const [userName, setUserName] = useState("");
 
-  // Sync detected street side from map
   useEffect(() => {
     if (detectedStreetSide) {
       setStreetSide(detectedStreetSide);
     }
   }, [detectedStreetSide]);
+
+  const handleStreetSideChange = (value: string) => {
+    setStreetSide(value);
+    onStreetSideChange?.(value);
+  };
+
+  const handleStreetWidthChange = (value: number) => {
+    const clamped = Math.min(30, Math.max(4, value));
+    setStreetWidth(clamped);
+    onStreetWidthChange?.(clamped);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +84,7 @@ export default function RequirementsForm({ hasPolygon, onSubmit, isLoading, dete
       {/* Street Side */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Street Side / جهة الشارع</label>
-        <Select value={streetSide} onValueChange={setStreetSide}>
+        <Select value={streetSide} onValueChange={handleStreetSideChange}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -84,15 +105,26 @@ export default function RequirementsForm({ hasPolygon, onSubmit, isLoading, dete
         <Input
           type="number"
           value={streetWidth}
-          onChange={(e) => setStreetWidth(Math.min(30, Math.max(4, Number(e.target.value))))}
+          onChange={(e) => handleStreetWidthChange(Number(e.target.value))}
           min={4}
           max={30}
         />
         <p className="text-xs text-muted-foreground">Approximate width of the street (4–30m)</p>
       </div>
 
-      {/* Bedrooms */}
-      <StepperInput value={rooms} onChange={setRooms} min={1} max={6} label="Bedrooms" labelAr="غرف النوم" />
+      {/* Bedrooms — conditional on plot size */}
+      {isSmallPlot ? (
+        <div className="rounded-lg border bg-accent/50 p-3">
+          <p className="text-sm font-medium">
+            🏢 Small plot detected — AI will automatically plan a two-floor layout
+          </p>
+          <p className="text-xs text-muted-foreground mt-1" dir="rtl">
+            مساحة صغيرة — سيختار الذكاء الاصطناعي التوزيع تلقائياً
+          </p>
+        </div>
+      ) : (
+        <StepperInput value={rooms} onChange={setRooms} min={2} max={5} label="Bedrooms" labelAr="غرف النوم" />
+      )}
 
       {/* Bathrooms */}
       <StepperInput value={bathrooms} onChange={setBathrooms} min={1} max={4} label="Bathrooms" labelAr="الحمامات" />

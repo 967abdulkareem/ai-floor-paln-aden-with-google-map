@@ -6,7 +6,7 @@ import { Layers } from "lucide-react";
 const DIRECTIONS_8 = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] as const;
 export type Direction8 = (typeof DIRECTIONS_8)[number];
 
-const SANAA_CENTER = { lat: 15.3694, lng: 44.191 };
+const ADEN_CENTER = { lat: 12.957532, lng: 45.012711 };
 
 function computeArea(path: google.maps.LatLng[]): number {
   return google.maps.geometry
@@ -182,8 +182,8 @@ export default function LandMap({ onPolygonComplete, onPolygonCleared }: LandMap
         <GoogleMap
           mapContainerClassName="rounded-lg overflow-hidden border"
           mapContainerStyle={{ width: "100%", height: "500px" }}
-          center={SANAA_CENTER}
-          zoom={18}
+          center={ADEN_CENTER}
+          zoom={17}
           mapTypeId={mapTypeId}
           onLoad={onMapLoad}
           options={{
