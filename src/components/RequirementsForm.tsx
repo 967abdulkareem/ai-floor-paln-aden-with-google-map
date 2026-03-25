@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import StepperInput from "./StepperInput";
+import { Badge } from "@/components/ui/badge";
 
 export interface FormData {
   streetSide: string;
@@ -13,6 +14,7 @@ export interface FormData {
   rooms: number;
   bathrooms: number;
   includeDiwan: boolean;
+  includeGarden: boolean;
   includeOffice: boolean;
   userName: string;
 }
@@ -25,6 +27,9 @@ interface RequirementsFormProps {
   isSmallPlot?: boolean;
   onStreetSideChange?: (side: string) => void;
   onStreetWidthChange?: (width: number) => void;
+  onDiwanChange?: (value: boolean) => void;
+  onGardenChange?: (value: boolean) => void;
+  currentState?: number;
 }
 
 const DIRECTIONS = [
@@ -46,12 +51,16 @@ export default function RequirementsForm({
   isSmallPlot = false,
   onStreetSideChange,
   onStreetWidthChange,
+  onDiwanChange,
+  onGardenChange,
+  currentState = 0,
 }: RequirementsFormProps) {
   const [streetSide, setStreetSide] = useState("South");
   const [streetWidth, setStreetWidth] = useState(10);
   const [rooms, setRooms] = useState(3);
   const [bathrooms, setBathrooms] = useState(2);
   const [includeDiwan, setIncludeDiwan] = useState(true);
+  const [includeGarden, setIncludeGarden] = useState(false);
   const [userName, setUserName] = useState("");
 
   useEffect(() => {
@@ -70,9 +79,19 @@ export default function RequirementsForm({
     onStreetWidthChange?.(value);
   };
 
+  const handleDiwanChange = (value: boolean) => {
+    setIncludeDiwan(value);
+    onDiwanChange?.(value);
+  };
+
+  const handleGardenChange = (value: boolean) => {
+    setIncludeGarden(value);
+    onGardenChange?.(value);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ streetSide, streetWidth, rooms, bathrooms, includeDiwan, includeOffice: false, userName });
+    onSubmit({ streetSide, streetWidth, rooms, bathrooms, includeDiwan, includeGarden, includeOffice: false, userName });
   };
 
   const isStreetWidthValid = streetWidth > 0;
@@ -99,7 +118,7 @@ export default function RequirementsForm({
         </p>
       </div>
 
-      {/* Street Width — free number input, no min/max constraints */}
+      {/* Street Width — free number input */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Street Width (m) / عرض الشارع</label>
         <div className="flex items-center gap-2">
@@ -118,27 +137,27 @@ export default function RequirementsForm({
         )}
       </div>
 
-      {/* Bedrooms — conditional on plot size */}
+      {/* Bedrooms & Bathrooms — conditional on plot size */}
       {isSmallPlot ? (
         <div className="rounded-lg border bg-accent/50 p-3">
           <p className="text-sm font-medium">
-            🏢 Small plot detected — AI will automatically plan a two-floor layout
+            🏢 Small plot — AI will plan a two-floor layout automatically
           </p>
           <p className="text-xs text-muted-foreground mt-1" dir="rtl">
-            مساحة صغيرة — سيختار الذكاء الاصطناعي التوزيع تلقائياً
+            مساحة صغيرة — الذكاء الاصطناعي سيخطط تلقائياً
           </p>
         </div>
       ) : (
-        <StepperInput value={rooms} onChange={setRooms} min={2} max={5} label="Bedrooms" labelAr="غرف النوم" />
+        <>
+          <StepperInput value={rooms} onChange={setRooms} min={2} max={5} label="Bedrooms" labelAr="غرف النوم" />
+          <StepperInput value={bathrooms} onChange={setBathrooms} min={1} max={4} label="Bathrooms" labelAr="الحمامات" />
+        </>
       )}
-
-      {/* Bathrooms */}
-      <StepperInput value={bathrooms} onChange={setBathrooms} min={1} max={4} label="Bathrooms" labelAr="الحمامات" />
 
       {/* Diwan */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <Switch checked={includeDiwan} onCheckedChange={setIncludeDiwan} />
+          <Switch checked={includeDiwan} onCheckedChange={handleDiwanChange} />
           <span className="text-sm font-medium">Include Diwan (ديوان)</span>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -154,6 +173,25 @@ export default function RequirementsForm({
         )}
       </div>
 
+      {/* Garden */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Switch checked={includeGarden} onCheckedChange={handleGardenChange} />
+          <span className="text-sm font-medium">Include Garden / حديقة</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs text-xs">
+              A private outdoor garden space within the plot.
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        {includeGarden && (
+          <p className="text-xs text-success">✅ Garden will be included in the layout</p>
+        )}
+      </div>
+
       {/* Name */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Your Name / الاسم (optional)</label>
@@ -163,6 +201,13 @@ export default function RequirementsForm({
           placeholder="For the title block of your floor plan"
         />
       </div>
+
+      {/* State Badge */}
+      {currentState > 0 && (
+        <div className="text-xs text-muted-foreground text-center mb-2">
+          Design Type / نوع التصميم: <Badge variant="secondary" className="ml-1">State {currentState}</Badge>
+        </div>
+      )}
 
       {/* Submit */}
       <Button
