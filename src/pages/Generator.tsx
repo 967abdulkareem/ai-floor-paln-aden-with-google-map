@@ -269,6 +269,7 @@ export default function Generator() {
     landAreaM2: number;
     maxBuildableM2: number;
     adjustedForCoverage: boolean;
+    longestSideAngleDeg: number;
   } | null>(null);
   const [buildingStats, setBuildingStats] = useState<{ maxHeightM: number; maxFloors: number }>({ maxHeightM: 0, maxFloors: 0 });
   const [isSmallPlot, setIsSmallPlot] = useState<boolean>(false);
