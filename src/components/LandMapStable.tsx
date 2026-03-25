@@ -6,7 +6,7 @@ import { Layers } from "lucide-react";
 const DIRECTIONS_8 = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] as const;
 export type Direction8 = (typeof DIRECTIONS_8)[number];
 
-const ADEN_CENTER = { lat: 12.957532, lng: 45.012711 };
+const ADEN_CENTER = { lat: 12.9662408, lng: 45.0260798 };
 
 function computeArea(path: google.maps.LatLng[]): number {
   return google.maps.geometry

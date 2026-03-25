@@ -252,6 +252,172 @@ const buildOverlaySVG = (
 </svg>`;
 };
 
+// --- State Detector ---
+
+const detectState = (
+  landAreaM2: number,
+  includeDiwan: boolean,
+  includeGarden: boolean
+): number => {
+  const hasArea = landAreaM2 >= 110;
+
+  if (hasArea && includeDiwan && includeGarden) return 1;
+  if (hasArea && includeDiwan && !includeGarden) return 2;
+  if (hasArea && !includeDiwan && !includeGarden) return 3;
+  if (!hasArea && includeDiwan && includeGarden) return 4;
+  if (!hasArea && !includeDiwan && includeGarden) return 5;
+  return 6;
+};
+
+// --- 6 Prompt Builder ---
+
+const buildPromptForState = (
+  state: number,
+  rectWidthM: number,
+  rectDepthM: number,
+  streetSide: string,
+  streetWidth: number,
+  bedrooms: number,
+  bathrooms: number
+): string => {
+  const base = `You are an architect. Generate a CAD-style floor plan.
+Black lines on white background.
+Label every room with name and size in meters.
+No furniture. Room outlines and names only.
+Building footprint: ${rectWidthM}m wide x ${rectDepthM}m deep.
+Street is on the ${streetSide} side. Street width: ${streetWidth}m.
+Main entrance must face the ${streetSide} side.
+North arrow required. Scale bar required.
+Show south-side shading as a simple rectangle on the ${streetSide === "South" ? "South" : "south"} facade.`;
+
+  switch (state) {
+    case 1:
+      return `${base}
+
+DESIGN TYPE: Large plot with guest office, garden, and full family home.
+
+GROUND FLOOR:
+- Guest Office (with private WC and small waiting area): adjacent to main entrance on ${streetSide} side. Has its own separate entrance door from street. Connected to rest of house by one internal door only.
+- Living Room: min 15m²
+- Kitchen: min 8m², south side
+- Family Bathroom: min 4m²
+- Garden: outdoor space, min 15m², accessible from living room. Shown as open area with border.
+
+UPPER FLOOR(S):
+- ${bedrooms} Bedrooms (each min 9m²)
+- ${bathrooms} Bathrooms (each min 4m²)
+- Staircase connecting floors
+
+NOTES:
+- Guest office must be accessible without entering family areas
+- Label garden clearly as "Garden / حديقة"`;
+
+    case 2:
+      return `${base}
+
+DESIGN TYPE: Large plot with integrated guest suite and family home on one or two floors.
+
+LAYOUT:
+- Guest Suite near main entrance on ${streetSide} side:
+  * Waiting/Reception corridor (min 3m²)
+  * Private Office/Guest Room (min 9m²)
+  * Guest WC (min 2m²)
+  * Separate entrance door from street
+  * One internal door connecting to family area
+- Living Room: min 15m²
+- Kitchen: min 8m², south side
+- ${bedrooms} Bedrooms (each min 9m²)
+- ${bathrooms} Bathrooms (each min 4m²)
+- Staircase if two floors
+
+NOTES:
+- Guest suite must have full privacy from family spaces
+- No garden — use all buildable area for interior spaces`;
+
+    case 3:
+      return `${base}
+
+DESIGN TYPE: Large residential plot — two independent studio units on ground floor, shared roof access.
+
+LAYOUT — GROUND FLOOR:
+- Unit A:
+  * Living/Bedroom space (min 20m²)
+  * Kitchen corner (min 5m²)
+  * Bathroom (min 4m²)
+  * Private entrance from ${streetSide} side
+- Unit B:
+  * Living/Bedroom space (min 20m²)
+  * Kitchen corner (min 5m²)
+  * Bathroom (min 4m²)
+  * Private entrance from ${streetSide} side
+- Shared staircase to roof (shown clearly)
+
+NOTES:
+- Two completely independent units, no shared interior spaces
+- Both entrances face the ${streetSide} side
+- Label clearly: "Unit A", "Unit B", "Shared Staircase"`;
+
+    case 4:
+      return `${base}
+
+DESIGN TYPE: Small plot, two-floor home with garden and guest reception on ground floor.
+
+GROUND FLOOR:
+- Guest Reception Room (min 9m²): adjacent to entrance, separated from family areas by wall and door
+- Guest WC (min 2m²): adjacent to reception
+- Kitchen (min 5m²): south side
+- Garden: outdoor area, remainder of ground floor footprint. Shown as open bordered area.
+
+UPPER FLOOR:
+- Bedrooms (AI decides count based on space): each min 9m²
+- Bathroom (min 4m²)
+- Staircase connecting floors
+
+NOTES:
+- AI determines number of bedrooms based on available upper floor area
+- Garden must be accessible from ground floor interior
+- Label all spaces clearly`;
+
+    case 5:
+      return `${base}
+
+DESIGN TYPE: Small plot with garden, compact two-floor home, staircase as privacy separator.
+
+GROUND FLOOR:
+- Living Room (min 9m²)
+- Kitchen (min 5m²): south side
+- Bathroom (min 4m²)
+- Garden: outdoor space alongside building. Shown as open bordered area.
+- Staircase: positioned to separate living area from bedroom floor above
+
+UPPER FLOOR:
+- Bedrooms (AI decides count): each min 9m²
+- Bathroom (min 4m²)
+
+NOTES:
+- Staircase acts as spatial separator between public ground floor and private upper floor
+- Garden shown clearly as outdoor space with label "Garden / حديقة"`;
+
+    case 6:
+    default:
+      return `${base}
+
+DESIGN TYPE: Small plot — compact studio apartment, maximum use of available space.
+
+LAYOUT (single floor or split level):
+- Main living/sleeping space (min 18m²)
+- Kitchen area (min 4m²): south side
+- Bathroom (min 4m²)
+- Entrance from ${streetSide} side
+- Staircase to roof for access
+
+NOTES:
+- Single compact unit
+- Efficient layout, no wasted circulation space
+- Label: "Studio / استوديو"`;
+  }
+};
+
 export default function Generator() {
   const [coordinates, setCoordinates] = useState<[number, number][]>([]);
   const [areaM2, setAreaM2] = useState(0);
@@ -262,6 +428,10 @@ export default function Generator() {
 
   const [streetSide, setStreetSide] = useState<string>("South");
   const [streetWidth, setStreetWidth] = useState<number>(10);
+  const [includeDiwan, setIncludeDiwan] = useState<boolean>(true);
+  const [includeGarden, setIncludeGarden] = useState<boolean>(false);
+  const [currentState, setCurrentState] = useState<number>(0);
+
   const [buildableRect, setBuildableRect] = useState<{
     rectWidthM: number;
     rectDepthM: number;
@@ -280,7 +450,6 @@ export default function Generator() {
     setAreaM2(area);
     setHasPolygon(true);
 
-    // Use new bearing-based auto-detection
     const coordsArr = coords.map(([lat, lng]) => [lat, lng]);
     const detected = autoDetectStreetSide(coordsArr);
     setDetectedStreetSide(detected);
@@ -296,6 +465,7 @@ export default function Generator() {
     setBuildingStats({ maxHeightM: 0, maxFloors: 0 });
     setIsSmallPlot(false);
     setPolygonSVG('');
+    setCurrentState(0);
   }, []);
 
   // Run all calculations when inputs change
@@ -312,11 +482,22 @@ export default function Generator() {
     const maxFloors = Math.floor(maxHeightM / 3.5);
     setBuildingStats({ maxHeightM, maxFloors });
 
-    setIsSmallPlot(rect.landAreaM2 < 110);
+    const small = rect.landAreaM2 < 110;
+    setIsSmallPlot(small);
 
     const svg = buildOverlaySVG(coordsArr, rect.rectWidthM, rect.rectDepthM, streetSide, rect.longestSideAngleDeg);
     setPolygonSVG(svg);
   }, [coordinates, streetSide, streetWidth]);
+
+  // Update state whenever toggles or area change
+  useEffect(() => {
+    if (!buildableRect) {
+      setCurrentState(0);
+      return;
+    }
+    const state = detectState(buildableRect.landAreaM2, includeDiwan, includeGarden);
+    setCurrentState(state);
+  }, [buildableRect, includeDiwan, includeGarden]);
 
   const handleStreetSideChange = useCallback((side: string) => {
     setStreetSide(side);
@@ -326,7 +507,20 @@ export default function Generator() {
     setStreetWidth(width);
   }, []);
 
+  const handleDiwanChange = useCallback((value: boolean) => {
+    setIncludeDiwan(value);
+  }, []);
+
+  const handleGardenChange = useCallback((value: boolean) => {
+    setIncludeGarden(value);
+  }, []);
+
   const handleSubmit = (data: FormData) => {
+    if (!buildableRect) return;
+
+    const state = detectState(buildableRect.landAreaM2, data.includeDiwan, data.includeGarden);
+    setCurrentState(state);
+
     setSubmittedFormData({
       streetSide: data.streetSide,
       streetWidth: data.streetWidth,
@@ -370,12 +564,10 @@ export default function Generator() {
                 onPolygonCleared={handlePolygonCleared}
               />
 
-              {/* Polygon + Rectangle Overlay Preview Card */}
               {hasPolygon && polygonSVG && (
                 <PolygonPreviewCard svgContent={polygonSVG} vertexCount={coordinates.length} />
               )}
 
-              {/* Calculations Panel */}
               {hasPolygon && buildableRect && (
                 <CalculationsPanel
                   areaM2={buildableRect.landAreaM2}
@@ -396,6 +588,9 @@ export default function Generator() {
                 isSmallPlot={isSmallPlot}
                 onStreetSideChange={handleStreetSideChange}
                 onStreetWidthChange={handleStreetWidthChange}
+                onDiwanChange={handleDiwanChange}
+                onGardenChange={handleGardenChange}
+                currentState={currentState}
               />
             </div>
           </div>
