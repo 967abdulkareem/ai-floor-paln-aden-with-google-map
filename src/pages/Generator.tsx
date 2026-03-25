@@ -307,12 +307,14 @@ export default function Generator() {
     const rect = calculateBuildableRectangle(coordsArr, streetSide);
     setBuildableRect(rect);
 
-    const stats = calculateBuildingStats(streetWidth);
-    setBuildingStats(stats);
+    const setbackSum = 3;
+    const maxHeightM = streetWidth + setbackSum;
+    const maxFloors = Math.floor(maxHeightM / 3.5);
+    setBuildingStats({ maxHeightM, maxFloors });
 
     setIsSmallPlot(rect.landAreaM2 < 110);
 
-    const svg = buildOverlaySVG(coordsArr, rect.rectWidthM, rect.rectDepthM, streetSide);
+    const svg = buildOverlaySVG(coordsArr, rect.rectWidthM, rect.rectDepthM, streetSide, rect.longestSideAngleDeg);
     setPolygonSVG(svg);
   }, [coordinates, streetSide, streetWidth]);
 
