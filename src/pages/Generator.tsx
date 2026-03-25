@@ -64,6 +64,7 @@ const calculateBuildableRectangle = (
   landAreaM2: number;
   maxBuildableM2: number;
   adjustedForCoverage: boolean;
+  longestSideAngleDeg: number;
 } => {
   const refLat = coords[0][0];
   const refLng = coords[0][1];
@@ -74,26 +75,27 @@ const calculateBuildableRectangle = (
   }));
 
   const n = meterCoords.length;
-  const sideLengths: number[] = [];
+
+  const sides = [];
   for (let i = 0; i < n; i++) {
     const p1 = meterCoords[i];
     const p2 = meterCoords[(i + 1) % n];
     const length = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
-    sideLengths.push(length);
+    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI);
+    sides.push({ length, angle, index: i });
   }
 
-  const sorted = [...sideLengths].sort((a, b) => a - b);
-  const shortSide1 = sorted[0];
-  const shortSide2 = sorted[1];
+  const sorted = [...sides].sort((a, b) => a.length - b.length);
 
-  let rectW = Math.max(shortSide1, shortSide2);
-  let rectH = Math.min(shortSide1, shortSide2);
+  const side1 = sorted[0].length;
+  const side3 = sorted[Math.min(2, sorted.length - 1)].length;
 
-  const setback = 1;
-  rectW -= setback;
-  rectH -= setback;
+  let rectW = Math.max(side1, side3);
+  let rectH = Math.min(side1, side3);
 
-  // Shoelace formula for land area
+  rectW = Math.max(0, rectW - 1);
+  rectH = Math.max(0, rectH - 1);
+
   let landArea = 0;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
@@ -115,6 +117,9 @@ const calculateBuildableRectangle = (
     rectArea = rectW * rectH;
   }
 
+  const longestSide = [...sides].sort((a, b) => b.length - a.length)[0];
+  const longestSideAngleDeg = longestSide.angle;
+
   return {
     rectWidthM: Math.round(rectW * 10) / 10,
     rectDepthM: Math.round(rectH * 10) / 10,
@@ -122,19 +127,8 @@ const calculateBuildableRectangle = (
     landAreaM2: Math.round(landAreaM2 * 10) / 10,
     maxBuildableM2: Math.round(maxBuildableM2 * 10) / 10,
     adjustedForCoverage: adjusted,
+    longestSideAngleDeg,
   };
-};
-
-const calculateBuildingStats = (
-  streetWidth: number,
-): {
-  maxHeightM: number;
-  maxFloors: number;
-} => {
-  const setbackSum = 3;
-  const maxHeightM = streetWidth + setbackSum;
-  const maxFloors = Math.floor(maxHeightM / 3.5);
-  return { maxHeightM, maxFloors };
 };
 
 const buildOverlaySVG = (
@@ -142,6 +136,7 @@ const buildOverlaySVG = (
   rectWidthM: number,
   rectDepthM: number,
   streetSide: string,
+  longestSideAngleDeg: number,
 ): string => {
   const refLat = coords[0][0];
   const refLng = coords[0][1];
@@ -158,9 +153,9 @@ const buildOverlaySVG = (
   const rangeX = Math.max(...xs) - minX || 1;
   const rangeY = Math.max(...ys) - minY || 1;
 
-  const padding = 70;
+  const padding = 80;
   const svgW = 700;
-  const svgH = 420;
+  const svgH = 440;
   const scaleX = (svgW - padding * 2) / rangeX;
   const scaleY = (svgH - padding * 2) / rangeY;
   const scale = Math.min(scaleX, scaleY);
@@ -169,7 +164,7 @@ const buildOverlaySVG = (
     x: padding + (c.x - minX) * scale,
     y: svgH - padding - (c.y - minY) * scale,
   }));
-  const polyPointsStr = svgPoints.map(p => `${p.x},${p.y}`).join(' ');
+  const polyPointsStr = svgPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
   const n = meterCoords.length;
   const sideLabels = svgPoints.map((p, i) => {
@@ -183,49 +178,45 @@ const buildOverlaySVG = (
     const dx = next.y - p.y;
     const dy = -(next.x - p.x);
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const offsetX = (dx / len) * 16;
-    const offsetY = (dy / len) * 16;
+    const ox = (dx / len) * 18;
+    const oy = (dy / len) * 18;
 
-    return `<text x="${mx + offsetX}" y="${my + offsetY}"
+    return `<text x="${(mx + ox).toFixed(1)}" y="${(my + oy).toFixed(1)}"
       text-anchor="middle" font-size="12"
       fill="#c2410c" font-weight="600">${dist.toFixed(1)}m</text>`;
   }).join('');
 
   const dots = svgPoints.map(p =>
-    `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#ea580c"/>`
+    `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="#ea580c"/>`
   ).join('');
+
+  const centerSvgX = svgPoints.reduce((s, p) => s + p.x, 0) / svgPoints.length;
+  const centerSvgY = svgPoints.reduce((s, p) => s + p.y, 0) / svgPoints.length;
 
   const rW = rectWidthM * scale;
   const rH = rectDepthM * scale;
-  const centerX = padding + (rangeX / 2) * scale;
-  const centerY = svgH - padding - (rangeY / 2) * scale;
 
-  const rectX = centerX - rW / 2;
-  const rectY = centerY - rH / 2;
-  const rectSvgW = rW;
-  const rectSvgH = rH;
+  const rx = -rW / 2;
+  const ry = -rH / 2;
 
-  const rectLabelW = `<text x="${rectX + rectSvgW / 2}" y="${rectY - 8}"
-    text-anchor="middle" font-size="12" fill="#1d4ed8" font-weight="700"
-    >${rectWidthM.toFixed(1)}m</text>`;
-  const rectLabelH = `<text x="${rectX + rectSvgW + 10}" y="${rectY + rectSvgH / 2}"
-    text-anchor="start" font-size="12" fill="#1d4ed8" font-weight="700"
-    dominant-baseline="middle">${rectDepthM.toFixed(1)}m</text>`;
+  const rotateDeg = -longestSideAngleDeg;
 
-  const streetArrow = (() => {
-    switch (streetSide) {
-      case "South":
-        return `<text x="${svgW / 2}" y="${svgH - 8}" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▼ Street / الشارع</text>`;
-      case "North":
-        return `<text x="${svgW / 2}" y="18" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▲ Street / الشارع</text>`;
-      case "East":
-        return `<text x="${svgW - 10}" y="${svgH / 2}" text-anchor="end" font-size="13" fill="#16a34a" font-weight="700">Street ▶</text>`;
-      case "West":
-        return `<text x="10" y="${svgH / 2}" text-anchor="start" font-size="13" fill="#16a34a" font-weight="700">◀ Street</text>`;
-      default:
-        return '';
-    }
-  })();
+  const rectLabels = `
+    <text x="${rW / 2}" y="${ry - 8}"
+      text-anchor="middle" font-size="12"
+      fill="#1d4ed8" font-weight="700">${rectWidthM.toFixed(1)}m</text>
+    <text x="${rx + rW + 10}" y="0"
+      text-anchor="start" font-size="12"
+      fill="#1d4ed8" font-weight="700"
+      dominant-baseline="middle">${rectDepthM.toFixed(1)}m</text>
+  `;
+
+  const streetLabels: Record<string, string> = {
+    South: `<text x="${svgW / 2}" y="${svgH - 6}" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▼ Street / الشارع</text>`,
+    North: `<text x="${svgW / 2}" y="18" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▲ Street / الشارع</text>`,
+    East:  `<text x="${svgW - 8}" y="${svgH / 2}" text-anchor="end" font-size="13" fill="#16a34a" font-weight="700">Street ▶</text>`,
+    West:  `<text x="8" y="${svgH / 2}" text-anchor="start" font-size="13" fill="#16a34a" font-weight="700">◀ Street</text>`,
+  };
 
   const legend = `
     <rect x="10" y="10" width="14" height="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
@@ -235,22 +226,30 @@ const buildOverlaySVG = (
   `;
 
   return `
-    <svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"
-      style="width:100%;height:auto;background:#f9fafb;border-radius:8px;">
-      ${legend}
-      <polygon points="${polyPointsStr}"
-        fill="#fff7ed" stroke="#ea580c" stroke-width="2.5"/>
-      ${dots}
-      ${sideLabels}
-      <rect x="${rectX}" y="${rectY}"
-        width="${rectSvgW}" height="${rectSvgH}"
-        fill="#dbeafe" fill-opacity="0.5"
-        stroke="#1d4ed8" stroke-width="2"
-        stroke-dasharray="6,3"/>
-      ${rectLabelW}
-      ${rectLabelH}
-      ${streetArrow}
-    </svg>`;
+<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"
+  style="width:100%;height:auto;background:#f9fafb;border-radius:8px;">
+
+  ${legend}
+
+  <!-- Polygon -->
+  <polygon points="${polyPointsStr}"
+    fill="#fff7ed" stroke="#ea580c" stroke-width="2.5"/>
+  ${dots}
+  ${sideLabels}
+
+  <!-- Rotated rectangle centered on polygon centroid -->
+  <g transform="translate(${centerSvgX.toFixed(1)}, ${centerSvgY.toFixed(1)}) rotate(${rotateDeg.toFixed(1)})">
+    <rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}"
+      width="${rW.toFixed(1)}" height="${rH.toFixed(1)}"
+      fill="#dbeafe" fill-opacity="0.55"
+      stroke="#1d4ed8" stroke-width="2.5"
+      stroke-dasharray="7,3"/>
+    ${rectLabels}
+  </g>
+
+  ${streetLabels[streetSide] || ''}
+
+</svg>`;
 };
 
 export default function Generator() {
