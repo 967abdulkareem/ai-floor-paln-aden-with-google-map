@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, AlertTriangle } from "lucide-react";
 import StepperInput from "./StepperInput";
 import { Badge } from "@/components/ui/badge";
 
@@ -29,7 +29,7 @@ interface RequirementsFormProps {
   onStreetWidthChange?: (width: number) => void;
   onDiwanChange?: (value: boolean) => void;
   onGardenChange?: (value: boolean) => void;
-  currentState?: number;
+  currentState?: number | "blocked_western" | "blocked_toosmall";
 }
 
 const DIRECTIONS = [
@@ -42,6 +42,17 @@ const DIRECTIONS = [
   { value: "West", label: "West / الغرب" },
   { value: "North-West", label: "North-West / الشمال الغربي" },
 ];
+
+const stateLabels: Record<string | number, string> = {
+  1: "Full Home + Office + Garden",
+  2: "Full Home + Guest Office",
+  3: "Two Residential Flats",
+  4: "Two-Floor + Office + Garden",
+  5: "Two-Floor + Guest Office",
+  6: "Studio",
+  "blocked_western": "⚠️ Not available",
+  "blocked_toosmall": "⚠️ Not available",
+};
 
 export default function RequirementsForm({
   hasPolygon,
@@ -58,7 +69,6 @@ export default function RequirementsForm({
   const [streetSide, setStreetSide] = useState("South");
   const [streetWidth, setStreetWidth] = useState(10);
   const [rooms, setRooms] = useState(3);
-  const [bathrooms, setBathrooms] = useState(2);
   const [includeDiwan, setIncludeDiwan] = useState(true);
   const [includeGarden, setIncludeGarden] = useState(false);
   const [userName, setUserName] = useState("");
@@ -91,10 +101,11 @@ export default function RequirementsForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ streetSide, streetWidth, rooms, bathrooms, includeDiwan, includeGarden, includeOffice: false, userName });
+    onSubmit({ streetSide, streetWidth, rooms, bathrooms: 0, includeDiwan, includeGarden, includeOffice: false, userName });
   };
 
   const isStreetWidthValid = streetWidth > 0;
+  const isBlocked = currentState === "blocked_western" || currentState === "blocked_toosmall";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -118,7 +129,7 @@ export default function RequirementsForm({
         </p>
       </div>
 
-      {/* Street Width — free number input */}
+      {/* Street Width */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Street Width (m) / عرض الشارع</label>
         <div className="flex items-center gap-2">
@@ -137,7 +148,7 @@ export default function RequirementsForm({
         )}
       </div>
 
-      {/* Bedrooms & Bathrooms — conditional on plot size */}
+      {/* Bedrooms — conditional on plot size */}
       {isSmallPlot ? (
         <div className="rounded-lg border bg-accent/50 p-3">
           <p className="text-sm font-medium">
@@ -148,10 +159,7 @@ export default function RequirementsForm({
           </p>
         </div>
       ) : (
-        <>
-          <StepperInput value={rooms} onChange={setRooms} min={2} max={5} label="Bedrooms" labelAr="غرف النوم" />
-          <StepperInput value={bathrooms} onChange={setBathrooms} min={1} max={4} label="Bathrooms" labelAr="الحمامات" />
-        </>
+        <StepperInput value={rooms} onChange={setRooms} min={2} max={5} label="Bedrooms" labelAr="غرف النوم" />
       )}
 
       {/* Diwan */}
@@ -192,6 +200,35 @@ export default function RequirementsForm({
         )}
       </div>
 
+      {/* Blocked state warnings */}
+      {currentState === "blocked_western" && (
+        <div className="rounded-lg border border-yellow-400 bg-yellow-50 p-3 flex items-start gap-2">
+          <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-yellow-800">
+              🌿 Garden without a guest office is a Western-style villa layout — not typical Yemeni residential design.
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              Please enable the Diwan/Office option to include a garden, or remove the garden.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {currentState === "blocked_toosmall" && (
+        <div className="rounded-lg border border-yellow-400 bg-yellow-50 p-3 flex items-start gap-2">
+          <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-yellow-800">
+              📐 This plot is too small to include both a garden and a two-floor layout without a guest office.
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              Please either add the Diwan/Office, remove the garden, or choose a larger plot.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Name */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Your Name / الاسم (optional)</label>
@@ -203,9 +240,12 @@ export default function RequirementsForm({
       </div>
 
       {/* State Badge */}
-      {currentState > 0 && (
+      {currentState !== 0 && (
         <div className="text-xs text-muted-foreground text-center mb-2">
-          Design Type / نوع التصميم: <Badge variant="secondary" className="ml-1">State {currentState}</Badge>
+          Design Type / نوع التصميم:{" "}
+          <Badge variant={isBlocked ? "destructive" : "secondary"} className="ml-1">
+            {stateLabels[currentState] || "—"}
+          </Badge>
         </div>
       )}
 
@@ -214,8 +254,8 @@ export default function RequirementsForm({
         type="submit"
         size="lg"
         className="w-full"
-        disabled={!hasPolygon || isLoading || !isStreetWidthValid}
-        title={!hasPolygon ? "Please draw your land boundary on the map first" : !isStreetWidthValid ? "Enter a valid street width" : undefined}
+        disabled={!hasPolygon || isLoading || !isStreetWidthValid || isBlocked}
+        title={!hasPolygon ? "Please draw your land boundary on the map first" : !isStreetWidthValid ? "Enter a valid street width" : isBlocked ? "This combination is not available" : undefined}
       >
         {isLoading ? "Generating..." : "Generate Floor Plan / توليد المخطط"}
       </Button>
