@@ -310,43 +310,43 @@ Furniture is not necessary.`;
       return `${base}
 
 ROOMS:
-- Guest Office: positioned at the entrance on the ${streetSide} side. Has its own separate exterior door from the street. Connected to the rest of the house through one door only.
-- Entrance Corridor: small hall (min 3m²) separating the guest office from the rest of the house.
+- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street. Connected to the rest of the house through one door only.
+- Entrance Corridor: small hall separating the guest office from the rest of the house.
 - Guest WC: adjacent to the guest office. For guests only.
 - Living Room
 - Kitchen
 - ${bedrooms} Bedrooms (label as Bedroom 1, Bedroom 2, etc.)
-- Bathrooms: AI decides count and placement based on available space.
-- Garden: outdoor space shown as an open bordered rectangle labelled "Garden". Accessible from the living room.
-- Staircase: connecting floors, shown with stair symbol.
+- Bathrooms: AI decides count and placement.
+- Garden: outdoor space shown as an open bordered rectangle labelled "Garden / حديقة". Accessible from the living room.
+- Staircase connecting floors shown with stair symbol.
 
 CULTURAL:
-- Guest office must be reachable from the entrance without crossing any family living space.
-- The entrance corridor acts as a privacy buffer between the guest office and the family area.
-- Guest WC is for guests only — separate from family bathrooms.`;
+- Guest must reach the office from the entrance without crossing any family space.
+- Entrance corridor is the privacy buffer between guest office and family area.
+- Guest WC is for guests only, separate from family bathrooms.`;
 
     case 2:
       return `${base}
 
 ROOMS:
-- Guest Office: positioned at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
-- Entrance Corridor / Waiting Hall: (min 4m²) separates the guest office from the rest of the house. This is the privacy buffer.
-- Guest WC: accessible from the corridor only — not from the family area.
+- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
+- Entrance Corridor / Waiting Hall: separates the guest office from the rest of the house. This is the privacy buffer.
+- Guest WC: accessible from the corridor only, not from the family area.
 - Living Room
 - Kitchen
 - ${bedrooms} Bedrooms (label separately)
-- Bathrooms: AI decides count and placement based on available space.
-- Staircase: shown with stair symbol.
+- Bathrooms: AI decides count and placement.
+- Staircase shown with stair symbol.
 
 CULTURAL:
-- A guest must be able to enter the office, use the WC, and leave without ever seeing or entering the living room or bedrooms.
-- The corridor is the key privacy element — it must physically block the line of sight from the entrance to the family area.`;
+- A guest must enter the office, use the WC, and leave without seeing or entering the living room or bedrooms.
+- The corridor must physically block the line of sight from the entrance to the family area.`;
 
     case 3:
       return `${base}
 
 TWO SMALL RESIDENTIAL FLATS side by side.
-The AI divides the total area wisely between the two flats.
+The AI divides the total area wisely and equally between the two flats.
 
 Flat A (left side):
 - Bedrooms: AI decides based on available space
@@ -362,10 +362,8 @@ Flat B (right side):
 - Bathroom
 - Private entrance from the ${streetSide} side
 
-- Staircase between the two flats: shared, leads to roof and serves future vertical expansion. If space is tight, place it outside between the two units.
-
-Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".
-The AI should divide the rectangle area wisely and equally between the two flats.`;
+Shared staircase between the two flats leading to roof for future vertical expansion. Place outside between units if space is tight.
+Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".`;
 
     case 4:
       return `${base}
@@ -373,20 +371,20 @@ The AI should divide the rectangle area wisely and equally between the two flats
 TWO FLOORS. AI decides room count based on available space.
 
 GROUND FLOOR:
-- Guest Office: adjacent to entrance on ${streetSide} side. Separate exterior door.
-- Entrance Corridor: (min 3m²) separates guest office from rest of ground floor.
+- Guest Office: at entrance on ${streetSide} side. Separate exterior door.
+- Entrance Corridor: separates guest office from rest of ground floor.
 - Guest WC: adjacent to corridor.
 - Kitchen
-- Garden: outdoor space shown as an open bordered rectangle labelled "Garden". Accessible from inside. Not accessible directly from the street.
+- Garden: outdoor space shown as open bordered rectangle labelled "Garden / حديقة". Accessible from inside. Not accessible from the street directly.
 
 UPPER FLOOR:
-- Bedrooms: AI determines count based on available space.
+- Bedrooms: AI determines count.
 - Bathrooms: AI decides count and placement.
 - Staircase connecting floors.
 
 CULTURAL:
-- Guest office on the ground floor keeps guests away from family sleeping areas upstairs.
-- Garden is a private family outdoor space, not accessible from the street directly.`;
+- Guest office on ground floor keeps guests away from family sleeping areas upstairs.
+- Garden is a private family space, not visible or accessible from the street.`;
 
     case 5:
       return `${base}
@@ -395,18 +393,18 @@ TWO FLOORS. AI decides room count based on available space.
 
 GROUND FLOOR:
 - Guest Office: at entrance on ${streetSide} side. Separate exterior door.
-- Entrance Corridor: (min 3m²) privacy buffer between guest office and rest of house.
+- Entrance Corridor: privacy buffer between guest office and rest of house.
 - Guest WC
 - Kitchen
-- Staircase: positioned as a physical separator between the guest area and the family living area above.
+- Staircase: positioned as a physical separator between the guest area and family area above.
 
 UPPER FLOOR:
 - Bedrooms: AI determines count.
 - Bathrooms: AI decides count and placement.
 
 CULTURAL:
-- The staircase acts as a spatial separator — guests stay on the ground floor, family retreats upstairs.
-- No direct visual connection from the entrance to any bedroom.`;
+- Guests stay on the ground floor. Family retreats upstairs.
+- No direct visual connection from entrance to any bedroom.`;
 
     case 6:
     default:
@@ -431,6 +429,7 @@ export default function Generator() {
   const [showResult, setShowResult] = useState(false);
   const [detectedStreetSide, setDetectedStreetSide] = useState<string | undefined>();
   const [submittedFormData, setSubmittedFormData] = useState<FloorPlanFormData | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string>("");
 
   const [streetSide, setStreetSide] = useState<string>("South");
   const [streetWidth, setStreetWidth] = useState<number>(10);
@@ -532,11 +531,19 @@ export default function Generator() {
       return;
     }
 
+    const prompt = buildPromptForState(
+      state as number,
+      buildableRect.rectWidthM,
+      buildableRect.rectDepthM,
+      data.streetSide,
+      data.rooms
+    );
+
+    setGeneratedPrompt(prompt);
     setSubmittedFormData({
       streetSide: data.streetSide,
       streetWidth: data.streetWidth,
       rooms: data.rooms,
-      bathrooms: 0,
       includeDiwan: data.includeDiwan,
       userName: data.userName,
       areaM2,
@@ -564,6 +571,7 @@ export default function Generator() {
           <TrialResult
             coordinates={coordinates}
             formData={submittedFormData}
+            prompt={generatedPrompt}
             onReset={handleReset}
           />
         ) : (

@@ -12,7 +12,6 @@ export interface FormData {
   streetSide: string;
   streetWidth: number;
   rooms: number;
-  bathrooms: number;
   includeDiwan: boolean;
   includeGarden: boolean;
   includeOffice: boolean;
@@ -101,7 +100,7 @@ export default function RequirementsForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ streetSide, streetWidth, rooms, bathrooms: 0, includeDiwan, includeGarden, includeOffice: false, userName });
+    onSubmit({ streetSide, streetWidth, rooms, includeDiwan, includeGarden, includeOffice: false, userName });
   };
 
   const isStreetWidthValid = streetWidth > 0;
