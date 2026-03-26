@@ -393,18 +393,18 @@ TWO FLOORS. AI decides room count based on available space.
 
 GROUND FLOOR:
 - Guest Office: at entrance on ${streetSide} side. Separate exterior door.
-- Entrance Corridor: (min 3m²) privacy buffer between guest office and rest of house.
+- Entrance Corridor: privacy buffer between guest office and rest of house.
 - Guest WC
 - Kitchen
-- Staircase: positioned as a physical separator between the guest area and the family living area above.
+- Staircase: positioned as a physical separator between the guest area and family area above.
 
 UPPER FLOOR:
 - Bedrooms: AI determines count.
 - Bathrooms: AI decides count and placement.
 
 CULTURAL:
-- The staircase acts as a spatial separator — guests stay on the ground floor, family retreats upstairs.
-- No direct visual connection from the entrance to any bedroom.`;
+- Guests stay on the ground floor. Family retreats upstairs.
+- No direct visual connection from entrance to any bedroom.`;
 
     case 6:
     default:
