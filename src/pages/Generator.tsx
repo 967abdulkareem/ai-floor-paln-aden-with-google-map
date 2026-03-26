@@ -275,150 +275,152 @@ const detectState = (
 
 // --- 6 Prompt Builder ---
 
+const stateLabels: Record<string | number, string> = {
+  1: "Full Home + Office + Garden",
+  2: "Full Home + Guest Office",
+  3: "Two Residential Flats",
+  4: "Two-Floor + Office + Garden",
+  5: "Two-Floor + Guest Office",
+  6: "Studio",
+  "blocked_western": "⚠️ Not available",
+  "blocked_toosmall": "⚠️ Not available",
+};
+
 const buildPromptForState = (
   state: number,
   rectWidthM: number,
   rectDepthM: number,
   streetSide: string,
-  streetWidth: number,
-  bedrooms: number,
-  bathrooms: number
+  bedrooms: number
 ): string => {
-  const base = `You are an architect. Generate a CAD-style floor plan.
-Black lines on white background.
-Label every room with name and size in meters.
-No furniture. Room outlines and names only.
-Building footprint: ${rectWidthM}m wide x ${rectDepthM}m deep.
-Street is on the ${streetSide} side. Street width: ${streetWidth}m.
-Main entrance must face the ${streetSide} side.
-North arrow required. Scale bar required.
-Show south-side shading as a simple rectangle on the ${streetSide === "South" ? "South" : "south"} facade.`;
+
+  const base = `Generate a 2D architectural floor plan drawing.
+Black lines on white background. CAD style.
+Label every room with its name and dimensions in meters.
+Building footprint: ${rectWidthM.toFixed(1)}m wide x ${rectDepthM.toFixed(1)}m deep.
+The ${streetSide} side is the street side — main entrance must face the ${streetSide}.
+North arrow in the corner. Scale bar at the bottom.
+On the south-facing wall, draw small filled rectangles to represent louvre shading elements.
+Include a staircase for future vertical expansion — place it outside the building footprint if interior space is limited.
+Furniture is not necessary.`;
 
   switch (state) {
+
     case 1:
       return `${base}
 
-DESIGN TYPE: Large plot with guest office, garden, and full family home.
+ROOMS:
+- Guest Office: positioned at the entrance on the ${streetSide} side. Has its own separate exterior door from the street. Connected to the rest of the house through one door only.
+- Entrance Corridor: small hall (min 3m²) separating the guest office from the rest of the house.
+- Guest WC: adjacent to the guest office. For guests only.
+- Living Room
+- Kitchen
+- ${bedrooms} Bedrooms (label as Bedroom 1, Bedroom 2, etc.)
+- Bathrooms: AI decides count and placement based on available space.
+- Garden: outdoor space shown as an open bordered rectangle labelled "Garden". Accessible from the living room.
+- Staircase: connecting floors, shown with stair symbol.
 
-GROUND FLOOR:
-- Guest Office (with private WC and small waiting area): adjacent to main entrance on ${streetSide} side. Has its own separate entrance door from street. Connected to rest of house by one internal door only.
-- Living Room: min 15m²
-- Kitchen: min 8m², south side
-- Family Bathroom: min 4m²
-- Garden: outdoor space, min 15m², accessible from living room. Shown as open area with border.
-
-UPPER FLOOR(S):
-- ${bedrooms} Bedrooms (each min 9m²)
-- ${bathrooms} Bathrooms (each min 4m²)
-- Staircase connecting floors
-
-NOTES:
-- Guest office must be accessible without entering family areas
-- Label garden clearly as "Garden / حديقة"`;
+CULTURAL:
+- Guest office must be reachable from the entrance without crossing any family living space.
+- The entrance corridor acts as a privacy buffer between the guest office and the family area.
+- Guest WC is for guests only — separate from family bathrooms.`;
 
     case 2:
       return `${base}
 
-DESIGN TYPE: Large plot with integrated guest suite and family home on one or two floors.
+ROOMS:
+- Guest Office: positioned at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
+- Entrance Corridor / Waiting Hall: (min 4m²) separates the guest office from the rest of the house. This is the privacy buffer.
+- Guest WC: accessible from the corridor only — not from the family area.
+- Living Room
+- Kitchen
+- ${bedrooms} Bedrooms (label separately)
+- Bathrooms: AI decides count and placement based on available space.
+- Staircase: shown with stair symbol.
 
-LAYOUT:
-- Guest Suite near main entrance on ${streetSide} side:
-  * Waiting/Reception corridor (min 3m²)
-  * Private Office/Guest Room (min 9m²)
-  * Guest WC (min 2m²)
-  * Separate entrance door from street
-  * One internal door connecting to family area
-- Living Room: min 15m²
-- Kitchen: min 8m², south side
-- ${bedrooms} Bedrooms (each min 9m²)
-- ${bathrooms} Bathrooms (each min 4m²)
-- Staircase if two floors
-
-NOTES:
-- Guest suite must have full privacy from family spaces
-- No garden — use all buildable area for interior spaces`;
+CULTURAL:
+- A guest must be able to enter the office, use the WC, and leave without ever seeing or entering the living room or bedrooms.
+- The corridor is the key privacy element — it must physically block the line of sight from the entrance to the family area.`;
 
     case 3:
       return `${base}
 
-DESIGN TYPE: Large residential plot — two independent studio units on ground floor, shared roof access.
+TWO SMALL RESIDENTIAL FLATS side by side.
+The AI divides the total area wisely between the two flats.
 
-LAYOUT — GROUND FLOOR:
-- Unit A:
-  * Living/Bedroom space (min 20m²)
-  * Kitchen corner (min 5m²)
-  * Bathroom (min 4m²)
-  * Private entrance from ${streetSide} side
-- Unit B:
-  * Living/Bedroom space (min 20m²)
-  * Kitchen corner (min 5m²)
-  * Bathroom (min 4m²)
-  * Private entrance from ${streetSide} side
-- Shared staircase to roof (shown clearly)
+Flat A (left side):
+- Bedrooms: AI decides based on available space
+- Living area
+- Kitchen
+- Bathroom
+- Private entrance from the ${streetSide} side
 
-NOTES:
-- Two completely independent units, no shared interior spaces
-- Both entrances face the ${streetSide} side
-- Label clearly: "Unit A", "Unit B", "Shared Staircase"`;
+Flat B (right side):
+- Bedrooms: AI decides based on available space
+- Living area
+- Kitchen
+- Bathroom
+- Private entrance from the ${streetSide} side
+
+- Staircase between the two flats: shared, leads to roof and serves future vertical expansion. If space is tight, place it outside between the two units.
+
+Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".
+The AI should divide the rectangle area wisely and equally between the two flats.`;
 
     case 4:
       return `${base}
 
-DESIGN TYPE: Small plot, two-floor home with garden and guest reception on ground floor.
+TWO FLOORS. AI decides room count based on available space.
 
 GROUND FLOOR:
-- Guest Reception Room (min 9m²): adjacent to entrance, separated from family areas by wall and door
-- Guest WC (min 2m²): adjacent to reception
-- Kitchen (min 5m²): south side
-- Garden: outdoor area, remainder of ground floor footprint. Shown as open bordered area.
+- Guest Office: adjacent to entrance on ${streetSide} side. Separate exterior door.
+- Entrance Corridor: (min 3m²) separates guest office from rest of ground floor.
+- Guest WC: adjacent to corridor.
+- Kitchen
+- Garden: outdoor space shown as an open bordered rectangle labelled "Garden". Accessible from inside. Not accessible directly from the street.
 
 UPPER FLOOR:
-- Bedrooms (AI decides count based on space): each min 9m²
-- Bathroom (min 4m²)
-- Staircase connecting floors
+- Bedrooms: AI determines count based on available space.
+- Bathrooms: AI decides count and placement.
+- Staircase connecting floors.
 
-NOTES:
-- AI determines number of bedrooms based on available upper floor area
-- Garden must be accessible from ground floor interior
-- Label all spaces clearly`;
+CULTURAL:
+- Guest office on the ground floor keeps guests away from family sleeping areas upstairs.
+- Garden is a private family outdoor space, not accessible from the street directly.`;
 
     case 5:
       return `${base}
 
-DESIGN TYPE: Small plot with garden, compact two-floor home, staircase as privacy separator.
+TWO FLOORS. AI decides room count based on available space.
 
 GROUND FLOOR:
-- Living Room (min 9m²)
-- Kitchen (min 5m²): south side
-- Bathroom (min 4m²)
-- Garden: outdoor space alongside building. Shown as open bordered area.
-- Staircase: positioned to separate living area from bedroom floor above
+- Guest Office: at entrance on ${streetSide} side. Separate exterior door.
+- Entrance Corridor: (min 3m²) privacy buffer between guest office and rest of house.
+- Guest WC
+- Kitchen
+- Staircase: positioned as a physical separator between the guest area and the family living area above.
 
 UPPER FLOOR:
-- Bedrooms (AI decides count): each min 9m²
-- Bathroom (min 4m²)
+- Bedrooms: AI determines count.
+- Bathrooms: AI decides count and placement.
 
-NOTES:
-- Staircase acts as spatial separator between public ground floor and private upper floor
-- Garden shown clearly as outdoor space with label "Garden / حديقة"`;
+CULTURAL:
+- The staircase acts as a spatial separator — guests stay on the ground floor, family retreats upstairs.
+- No direct visual connection from the entrance to any bedroom.`;
 
     case 6:
     default:
       return `${base}
 
-DESIGN TYPE: Small plot — compact studio apartment, maximum use of available space.
-
-LAYOUT (single floor or split level):
-- Main living/sleeping space (min 18m²)
-- Kitchen area (min 4m²): south side
-- Bathroom (min 4m²)
+SINGLE COMPACT UNIT — STUDIO:
+- Main living and sleeping space
+- Kitchen area
+- Bathroom
 - Entrance from ${streetSide} side
-- Staircase to roof for access
+- Staircase to roof access shown.
 
-NOTES:
-- Single compact unit
-- Efficient layout, no wasted circulation space
-- Label: "Studio / استوديو"`;
+Label the unit: "Studio / استوديو".
+Efficient layout. No wasted circulation space.`;
   }
 };
 
