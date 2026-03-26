@@ -12,7 +12,6 @@ export interface FormData {
   streetSide: string;
   streetWidth: number;
   rooms: number;
-  bathrooms: number;
   includeDiwan: boolean;
   includeGarden: boolean;
   includeOffice: boolean;
