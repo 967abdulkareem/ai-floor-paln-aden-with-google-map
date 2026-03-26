@@ -436,7 +436,7 @@ export default function Generator() {
   const [streetWidth, setStreetWidth] = useState<number>(10);
   const [includeDiwan, setIncludeDiwan] = useState<boolean>(true);
   const [includeGarden, setIncludeGarden] = useState<boolean>(false);
-  const [currentState, setCurrentState] = useState<number>(0);
+  const [currentState, setCurrentState] = useState<number | "blocked_western" | "blocked_toosmall">(0);
 
   const [buildableRect, setBuildableRect] = useState<{
     rectWidthM: number;
