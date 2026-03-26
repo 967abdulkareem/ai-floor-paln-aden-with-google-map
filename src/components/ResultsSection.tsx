@@ -84,7 +84,7 @@ export default function ResultsSection({ result, rooms, bathrooms, includeDiwan,
             {includeDiwan ? ", Diwan" : ""}
           </p>
           <p className="text-success font-medium">
-            ✅ Generated to comply with Sana'a building regulations
+            ✅ Generated to comply with Aden building regulations
           </p>
         </CardContent>
       </Card>

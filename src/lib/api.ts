@@ -53,57 +53,8 @@ export function getFullUrl(path: string): string {
   return `${BACKEND_URL}${path}`;
 }
 
-/** Build the text prompt sent to Gemini (or any LLM). */
-export function buildFloorPlanPrompt(
-  coordinates: [number, number][],
-  form: FloorPlanFormData,
-): string {
-  return `Generate a residential floor plan for a land plot in Sana'a, Yemen with the following specifications:
-
-Land coordinates (lat, lng): ${JSON.stringify(coordinates)}
-Land area: ${form.areaM2.toFixed(1)} m²
-Maximum buildable area (70% regulation): ${(form.areaM2 * 0.7).toFixed(1)} m²
-Street-facing side: ${form.streetSide}
-Street width: ${form.streetWidth}m
-
-Room requirements:
-- Bedrooms: ${form.rooms}
-- Bathrooms: ${form.bathrooms}
-- Kitchen: 1
-- Living room: 1
-${form.includeDiwan ? "- Diwan (traditional Yemeni reception room): 1 — must be near the entrance" : ""}
-
-Regulations:
-- Setback: 1.5m from all non-street sides
-- Street setback: based on street width (${form.streetWidth}m)
-- Max ground floor coverage: 70%
-- Must include stairwell for future vertical expansion
-
-Cultural notes:
-- Separate guest area from family area
-- Diwan should allow guests without entering private spaces
-- Entrance should not directly face living areas for privacy
-
-Generate a clear 2D floor plan image with labeled rooms and dimensions in meters.`;
-}
-
-/** Full JSON payload — useful for debugging or forwarding to any backend. */
-export function buildApiPayload(
-  coordinates: [number, number][],
-  form: FloorPlanFormData,
-) {
-  return {
-    prompt: buildFloorPlanPrompt(coordinates, form),
-    coordinates,
-    land_area_m2: form.areaM2,
-    street_side: form.streetSide,
-    street_width_m: form.streetWidth,
-    rooms: form.rooms,
-    bathrooms: form.bathrooms,
-    include_diwan: form.includeDiwan,
-    user_name: form.userName,
-  };
-}
+// Old buildFloorPlanPrompt and buildApiPayload removed.
+// Prompt building is now handled by buildPromptForState in Generator.tsx.
 
 // ── API calls ────────────────────────────────────────
 
