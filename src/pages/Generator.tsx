@@ -533,11 +533,19 @@ export default function Generator() {
       return;
     }
 
+    const prompt = buildPromptForState(
+      state as number,
+      buildableRect.rectWidthM,
+      buildableRect.rectDepthM,
+      data.streetSide,
+      data.rooms
+    );
+
+    setGeneratedPrompt(prompt);
     setSubmittedFormData({
       streetSide: data.streetSide,
       streetWidth: data.streetWidth,
       rooms: data.rooms,
-      bathrooms: 0,
       includeDiwan: data.includeDiwan,
       userName: data.userName,
       areaM2,
