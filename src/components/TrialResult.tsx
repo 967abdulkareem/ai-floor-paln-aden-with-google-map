@@ -2,19 +2,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, RefreshCw, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  generateFloorPlan,
-  exportCad,
-  type FloorPlanFormData,
-} from "@/lib/api";
+import { exportCad, type FloorPlanFormData } from "@/lib/api";
 
 interface TrialResultProps {
   coordinates: [number, number][];
   formData: FloorPlanFormData;
+  prompt: string;
   onReset: () => void;
 }
 
-export default function TrialResult({ coordinates, formData, onReset }: TrialResultProps) {
+export default function TrialResult({ coordinates, formData, prompt, onReset }: TrialResultProps) {
   const [isGenerating, setIsGenerating] = useState(true);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,11 +20,55 @@ export default function TrialResult({ coordinates, formData, onReset }: TrialRes
     setIsGenerating(true);
     setGeneratedImageUrl(null);
     setError(null);
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      setError("Gemini API key not configured. Set VITE_GEMINI_API_KEY.");
+      setIsGenerating(false);
+      return;
+    }
+
+    console.log("[TrialResult] Prompt being sent to Gemini:\n", prompt);
+
     try {
-      const result = await generateFloorPlan(coordinates, formData);
-      setGeneratedImageUrl(result.imageUrl || null);
-    } catch (err) {
-      setError((err as Error).message ?? "Generation failed");
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || "Gemini API error");
+      }
+
+      const data = await response.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+
+      let imageBase64: string | null = null;
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      if (!imageBase64) throw new Error("No image returned. Please try again.");
+
+      setGeneratedImageUrl(imageBase64);
+    } catch (err: any) {
+      setError(err.message || "Generation failed. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -85,16 +126,13 @@ export default function TrialResult({ coordinates, formData, onReset }: TrialRes
               <p className="text-xs sm:text-sm text-center">
                 Floor plan will appear here once the Gemini API is connected
               </p>
-              <p className="text-xs text-center opacity-70">
-                API payload is logged to console — ready to integrate
-              </p>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm bg-accent/50 rounded-lg p-3">
             <p><span className="font-semibold">Area:</span> {formData.areaM2.toFixed(1)} m²</p>
             <p><span className="font-semibold">Street:</span> {formData.streetSide}</p>
-            <p><span className="font-semibold">Rooms:</span> {formData.rooms} bed, {formData.bathrooms} bath</p>
+            <p><span className="font-semibold">Rooms:</span> {formData.rooms} bedrooms</p>
             <p><span className="font-semibold">Diwan:</span> {formData.includeDiwan ? "Yes" : "No"}</p>
           </div>
 

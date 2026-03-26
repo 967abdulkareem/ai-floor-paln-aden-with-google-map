@@ -31,15 +31,9 @@ export interface FloorPlanFormData {
   streetSide: string;
   streetWidth: number;
   rooms: number;
-  bathrooms: number;
   includeDiwan: boolean;
   userName: string;
   areaM2: number;
-}
-
-export interface GeminiResponse {
-  imageUrl: string;       // base64 data-url or hosted url returned by Gemini
-  rawResponse?: unknown;  // full API response for debugging
 }
 
 export interface CadExportResponse {
@@ -53,62 +47,8 @@ export function getFullUrl(path: string): string {
   return `${BACKEND_URL}${path}`;
 }
 
-// Old buildFloorPlanPrompt and buildApiPayload removed.
-// Prompt building is now handled by buildPromptForState in Generator.tsx.
-
-// ── API calls ────────────────────────────────────────
-
-/** Analyze land polygon via the Python backend. */
-export async function analyzeLand(
-  coordinates: [number, number][],
-): Promise<LandAnalysis> {
-  const res = await fetch(`${BACKEND_URL}/analyze-land`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ coordinates }),
-  });
-  if (!res.ok) throw new Error("Failed to analyze land");
-  return res.json();
-}
-
-/**
- * Generate a floor-plan image via Google Gemini API.
- * Replace the implementation when you swap to a different provider.
- */
-export async function generateFloorPlan(
-  coordinates: [number, number][],
-  form: FloorPlanFormData,
-): Promise<GeminiResponse> {
-  const payload = buildApiPayload(coordinates, form);
-
-  if (!GEMINI_URL || !GEMINI_KEY) {
-    // ── Placeholder until keys are configured ──
-    console.warn("[api] Gemini not configured – returning placeholder. Payload:", payload);
-    return { imageUrl: "", rawResponse: payload };
-  }
-
-  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: payload.prompt }] }],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error (${res.status}): ${errText}`);
-  }
-
-  const data = await res.json();
-  // Extract image from Gemini response — adjust path based on actual model
-  const imageUrl =
-    data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
-      ? `data:image/png;base64,${data.candidates[0].content.parts[0].inlineData.data}`
-      : "";
-
-  return { imageUrl, rawResponse: data };
-}
+// Prompt building is handled by buildPromptForState in Generator.tsx.
+// Gemini calls are handled directly in TrialResult.
 
 /**
  * Export a floor-plan image to a DXF/CAD file via the Python backend.
