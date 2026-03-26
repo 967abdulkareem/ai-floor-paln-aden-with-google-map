@@ -431,6 +431,7 @@ export default function Generator() {
   const [showResult, setShowResult] = useState(false);
   const [detectedStreetSide, setDetectedStreetSide] = useState<string | undefined>();
   const [submittedFormData, setSubmittedFormData] = useState<FloorPlanFormData | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string>("");
 
   const [streetSide, setStreetSide] = useState<string>("South");
   const [streetWidth, setStreetWidth] = useState<number>(10);
