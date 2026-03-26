@@ -573,6 +573,7 @@ export default function Generator() {
           <TrialResult
             coordinates={coordinates}
             formData={submittedFormData}
+            prompt={generatedPrompt}
             onReset={handleReset}
           />
         ) : (
