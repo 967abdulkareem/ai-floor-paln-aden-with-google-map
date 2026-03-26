@@ -371,20 +371,20 @@ Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".
 TWO FLOORS. AI decides room count based on available space.
 
 GROUND FLOOR:
-- Guest Office: adjacent to entrance on ${streetSide} side. Separate exterior door.
-- Entrance Corridor: (min 3m²) separates guest office from rest of ground floor.
+- Guest Office: at entrance on ${streetSide} side. Separate exterior door.
+- Entrance Corridor: separates guest office from rest of ground floor.
 - Guest WC: adjacent to corridor.
 - Kitchen
-- Garden: outdoor space shown as an open bordered rectangle labelled "Garden". Accessible from inside. Not accessible directly from the street.
+- Garden: outdoor space shown as open bordered rectangle labelled "Garden / حديقة". Accessible from inside. Not accessible from the street directly.
 
 UPPER FLOOR:
-- Bedrooms: AI determines count based on available space.
+- Bedrooms: AI determines count.
 - Bathrooms: AI decides count and placement.
 - Staircase connecting floors.
 
 CULTURAL:
-- Guest office on the ground floor keeps guests away from family sleeping areas upstairs.
-- Garden is a private family outdoor space, not accessible from the street directly.`;
+- Guest office on ground floor keeps guests away from family sleeping areas upstairs.
+- Garden is a private family space, not visible or accessible from the street.`;
 
     case 5:
       return `${base}
