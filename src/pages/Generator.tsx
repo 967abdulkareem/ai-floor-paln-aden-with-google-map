@@ -310,20 +310,20 @@ Furniture is not necessary.`;
       return `${base}
 
 ROOMS:
-- Guest Office: positioned at the entrance on the ${streetSide} side. Has its own separate exterior door from the street. Connected to the rest of the house through one door only.
-- Entrance Corridor: small hall (min 3m²) separating the guest office from the rest of the house.
+- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street. Connected to the rest of the house through one door only.
+- Entrance Corridor: small hall separating the guest office from the rest of the house.
 - Guest WC: adjacent to the guest office. For guests only.
 - Living Room
 - Kitchen
 - ${bedrooms} Bedrooms (label as Bedroom 1, Bedroom 2, etc.)
-- Bathrooms: AI decides count and placement based on available space.
-- Garden: outdoor space shown as an open bordered rectangle labelled "Garden". Accessible from the living room.
-- Staircase: connecting floors, shown with stair symbol.
+- Bathrooms: AI decides count and placement.
+- Garden: outdoor space shown as an open bordered rectangle labelled "Garden / حديقة". Accessible from the living room.
+- Staircase connecting floors shown with stair symbol.
 
 CULTURAL:
-- Guest office must be reachable from the entrance without crossing any family living space.
-- The entrance corridor acts as a privacy buffer between the guest office and the family area.
-- Guest WC is for guests only — separate from family bathrooms.`;
+- Guest must reach the office from the entrance without crossing any family space.
+- Entrance corridor is the privacy buffer between guest office and family area.
+- Guest WC is for guests only, separate from family bathrooms.`;
 
     case 2:
       return `${base}
