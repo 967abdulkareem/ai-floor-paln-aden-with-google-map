@@ -258,14 +258,18 @@ const detectState = (
   landAreaM2: number,
   includeDiwan: boolean,
   includeGarden: boolean
-): number => {
+): number | "blocked_western" | "blocked_toosmall" => {
   const hasArea = landAreaM2 >= 110;
 
   if (hasArea && includeDiwan && includeGarden) return 1;
   if (hasArea && includeDiwan && !includeGarden) return 2;
   if (hasArea && !includeDiwan && !includeGarden) return 3;
   if (!hasArea && includeDiwan && includeGarden) return 4;
-  if (!hasArea && !includeDiwan && includeGarden) return 5;
+  if (!hasArea && !includeDiwan && includeGarden) return "blocked_toosmall";
+  if (!hasArea && includeDiwan && !includeGarden) return 5;
+  if (!hasArea && !includeDiwan && !includeGarden) return 6;
+  if (hasArea && !includeDiwan && includeGarden) return "blocked_western";
+
   return 6;
 };
 
