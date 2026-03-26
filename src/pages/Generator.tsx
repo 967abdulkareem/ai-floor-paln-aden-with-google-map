@@ -329,18 +329,18 @@ CULTURAL:
       return `${base}
 
 ROOMS:
-- Guest Office: positioned at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
-- Entrance Corridor / Waiting Hall: (min 4m²) separates the guest office from the rest of the house. This is the privacy buffer.
-- Guest WC: accessible from the corridor only — not from the family area.
+- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
+- Entrance Corridor / Waiting Hall: separates the guest office from the rest of the house. This is the privacy buffer.
+- Guest WC: accessible from the corridor only, not from the family area.
 - Living Room
 - Kitchen
 - ${bedrooms} Bedrooms (label separately)
-- Bathrooms: AI decides count and placement based on available space.
-- Staircase: shown with stair symbol.
+- Bathrooms: AI decides count and placement.
+- Staircase shown with stair symbol.
 
 CULTURAL:
-- A guest must be able to enter the office, use the WC, and leave without ever seeing or entering the living room or bedrooms.
-- The corridor is the key privacy element — it must physically block the line of sight from the entrance to the family area.`;
+- A guest must enter the office, use the WC, and leave without seeing or entering the living room or bedrooms.
+- The corridor must physically block the line of sight from the entrance to the family area.`;
 
     case 3:
       return `${base}
