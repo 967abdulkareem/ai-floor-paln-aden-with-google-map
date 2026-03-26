@@ -527,11 +527,16 @@ export default function Generator() {
     const state = detectState(buildableRect.landAreaM2, data.includeDiwan, data.includeGarden);
     setCurrentState(state);
 
+    if (state === "blocked_western" || state === "blocked_toosmall") {
+      // Don't generate — blocked states are handled in the UI
+      return;
+    }
+
     setSubmittedFormData({
       streetSide: data.streetSide,
       streetWidth: data.streetWidth,
       rooms: data.rooms,
-      bathrooms: data.bathrooms,
+      bathrooms: 0,
       includeDiwan: data.includeDiwan,
       userName: data.userName,
       areaM2,
