@@ -346,7 +346,7 @@ CULTURAL:
       return `${base}
 
 TWO SMALL RESIDENTIAL FLATS side by side.
-The AI divides the total area wisely between the two flats.
+The AI divides the total area wisely and equally between the two flats.
 
 Flat A (left side):
 - Bedrooms: AI decides based on available space
@@ -362,10 +362,8 @@ Flat B (right side):
 - Bathroom
 - Private entrance from the ${streetSide} side
 
-- Staircase between the two flats: shared, leads to roof and serves future vertical expansion. If space is tight, place it outside between the two units.
-
-Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".
-The AI should divide the rectangle area wisely and equally between the two flats.`;
+Shared staircase between the two flats leading to roof for future vertical expansion. Place outside between units if space is tight.
+Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".`;
 
     case 4:
       return `${base}
