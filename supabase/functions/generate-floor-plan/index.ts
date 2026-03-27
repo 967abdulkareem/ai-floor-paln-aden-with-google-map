@@ -12,9 +12,9 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("gemini_3_pro_image_preview");
-    if (!apiKey) {
-      throw new Error("Gemini API key not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const { prompt } = await req.json();
@@ -22,43 +22,86 @@ serve(async (req) => {
       throw new Error("No prompt provided");
     }
 
-    console.log("[generate-floor-plan] Calling Gemini with prompt length:", prompt.length);
+    console.log("[generate-floor-plan] Calling Lovable AI with prompt length:", prompt.length);
 
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          model: "google/gemini-3-pro-image-preview",
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
         }),
       }
     );
 
+    if (response.status === 429) {
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (response.status === 402) {
+      return new Response(
+        JSON.stringify({ error: "AI credits exhausted. Please add funds to your workspace." }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!response.ok) {
-      const err = await response.json();
-      console.error("[generate-floor-plan] Gemini error:", JSON.stringify(err));
-      throw new Error(err.error?.message || "Gemini API error");
+      const errText = await response.text();
+      console.error("[generate-floor-plan] AI gateway error:", response.status, errText);
+      throw new Error("AI gateway error: " + errText);
     }
 
     const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
+    console.log("[generate-floor-plan] Response received, processing...");
 
+    // Extract image and text from the response
+    const message = data.choices?.[0]?.message;
     let imageBase64: string | null = null;
     let textResponse: string | null = null;
 
-    for (const part of parts) {
-      if (part.inlineData?.mimeType?.startsWith("image/")) {
-        imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-      }
-      if (part.text) {
-        textResponse = part.text;
+    if (message?.content) {
+      // Check if content is an array (multimodal response)
+      if (Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === "image_url" && part.image_url?.url) {
+            imageBase64 = part.image_url.url;
+          } else if (part.type === "text") {
+            textResponse = part.text;
+          }
+        }
+      } else if (typeof message.content === "string") {
+        // Check if the string contains a base64 image
+        const base64Match = message.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+        if (base64Match) {
+          imageBase64 = base64Match[0];
+        }
+        textResponse = message.content;
       }
     }
+
+    // Also check for inline_data format
+    if (!imageBase64 && message?.content) {
+      const parts = Array.isArray(message.content) ? message.content : [];
+      for (const part of parts) {
+        if (part.inline_data?.mime_type?.startsWith("image/")) {
+          imageBase64 = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`;
+        }
+      }
+    }
+
+    console.log("[generate-floor-plan] Image found:", !!imageBase64, "Text found:", !!textResponse);
 
     return new Response(
       JSON.stringify({ imageBase64, textResponse }),
