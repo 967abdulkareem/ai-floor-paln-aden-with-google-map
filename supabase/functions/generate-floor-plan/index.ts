@@ -34,6 +34,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: "google/gemini-3-pro-image-preview",
+          modalities: ["image", "text"],
           messages: [
             {
               role: "user",
@@ -67,9 +68,19 @@ serve(async (req) => {
     console.log("[generate-floor-plan] Response received, processing...");
 
     // Extract image and text from the response
-    const message = data.choices?.[0]?.message;
+    const choice = data.choices?.[0];
+    const message = choice?.message;
+    const finishReason = choice?.finish_reason;
     let imageBase64: string | null = null;
     let textResponse: string | null = null;
+
+    // Preferred format returned by Lovable AI image models
+    if (Array.isArray(message?.images)) {
+      const imagePart = message.images.find((img: any) => img?.image_url?.url);
+      if (imagePart?.image_url?.url) {
+        imageBase64 = imagePart.image_url.url;
+      }
+    }
 
     if (message?.content) {
       // Check if content is an array (multimodal response)
@@ -101,7 +112,30 @@ serve(async (req) => {
       }
     }
 
-    console.log("[generate-floor-plan] Image found:", !!imageBase64, "Text found:", !!textResponse);
+    console.log(
+      "[generate-floor-plan] finishReason:",
+      finishReason,
+      "Image found:",
+      !!imageBase64,
+      "Text found:",
+      !!textResponse,
+      "images_count:",
+      Array.isArray(message?.images) ? message.images.length : 0
+    );
+
+    if (!imageBase64) {
+      return new Response(
+        JSON.stringify({
+          error:
+            finishReason === "length"
+              ? "Generation stopped due to output limits. Please try a shorter prompt."
+              : "The model returned text but no image. Please regenerate.",
+          textResponse,
+          finishReason,
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ imageBase64, textResponse }),
