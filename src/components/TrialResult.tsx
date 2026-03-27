@@ -33,50 +33,30 @@ export default function TrialResult({
     setGeneratedImageUrl(null);
     setError(null);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      setError("Gemini API key not configured.");
-      setIsGenerating(false);
-      return;
-    }
-
     const promptToSend = customPrompt ?? editablePrompt;
     console.log("[TrialResult] Prompt:\n", promptToSend);
 
     try {
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-floor-plan`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: promptToSend }] }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-          }),
+          body: JSON.stringify({ prompt: promptToSend }),
         }
       );
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || "Gemini API error");
-      }
-
       const data = await response.json();
-      const parts = data.candidates?.[0]?.content?.parts || [];
 
-      let imageBase64: string | null = null;
-      for (const part of parts) {
-        if (part.inlineData?.mimeType?.startsWith("image/")) {
-          imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          break;
-        }
+      if (!response.ok) {
+        throw new Error(data.error || "Generation failed");
       }
 
-      if (!imageBase64) throw new Error("No image returned. Please try again.");
-      setGeneratedImageUrl(imageBase64);
+      if (!data.imageBase64) throw new Error("No image returned. Please try again.");
+      setGeneratedImageUrl(data.imageBase64);
 
     } catch (err: any) {
       setError(err.message || "Generation failed. Please try again.");
