@@ -572,6 +572,8 @@ export default function Generator() {
             coordinates={coordinates}
             formData={submittedFormData}
             prompt={generatedPrompt}
+            polygonSVG={polygonSVG}
+            vertexCount={coordinates.length}
             onReset={handleReset}
           />
         ) : (
