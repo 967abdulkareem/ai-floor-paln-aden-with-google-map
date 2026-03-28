@@ -33,30 +33,30 @@ export default function TrialResult({
     setGeneratedImageUrl(null);
     setError(null);
 
-    const promptToSend = customPrompt ?? editablePrompt;
-    console.log("[TrialResult] Prompt:\n", promptToSend);
+   const geminiKey = import.meta.env.VITE_GEMINI_KEY;
+if (!geminiKey) throw new Error("Gemini API key not set in secrets.");
 
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-floor-plan`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ prompt: promptToSend }),
-        }
-      );
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiKey}`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      instances: [{ prompt: promptToSend }],
+      parameters: { sampleCount: 1 }
+    }),
+  }
+);
 
-      const data = await response.json();
+const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Generation failed");
-      }
+if (!response.ok) {
+  throw new Error(data.error?.message || "Gemini generation failed");
+}
 
-      if (!data.imageBase64) throw new Error("No image returned. Please try again.");
-      setGeneratedImageUrl(data.imageBase64);
+const base64 = data.predictions?.[0]?.bytesBase64Encoded;
+if (!base64) throw new Error("No image returned. Please try again.");
+setGeneratedImageUrl(`data:image/png;base64,${base64}`);
 
     } catch (err: any) {
       setError(err.message || "Generation failed. Please try again.");
