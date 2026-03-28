@@ -545,7 +545,6 @@ export default function Generator() {
       streetWidth: data.streetWidth,
       rooms: data.rooms,
       includeDiwan: data.includeDiwan,
-      userName: data.userName,
       areaM2,
     });
     setShowResult(true);

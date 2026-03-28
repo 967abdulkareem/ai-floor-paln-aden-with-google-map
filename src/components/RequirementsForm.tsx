@@ -15,7 +15,7 @@ export interface FormData {
   includeDiwan: boolean;
   includeGarden: boolean;
   includeOffice: boolean;
-  userName: string;
+  
 }
 
 interface RequirementsFormProps {
@@ -70,7 +70,7 @@ export default function RequirementsForm({
   const [rooms, setRooms] = useState(3);
   const [includeDiwan, setIncludeDiwan] = useState(true);
   const [includeGarden, setIncludeGarden] = useState(false);
-  const [userName, setUserName] = useState("");
+  
 
   useEffect(() => {
     if (detectedStreetSide) {
@@ -100,7 +100,7 @@ export default function RequirementsForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ streetSide, streetWidth, rooms, includeDiwan, includeGarden, includeOffice: false, userName });
+    onSubmit({ streetSide, streetWidth, rooms, includeDiwan, includeGarden, includeOffice: false });
   };
 
   const isStreetWidthValid = streetWidth > 0;
@@ -228,15 +228,6 @@ export default function RequirementsForm({
         </div>
       )}
 
-      {/* Name */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Your Name / الاسم (optional)</label>
-        <Input
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          placeholder="For the title block of your floor plan"
-        />
-      </div>
 
       {/* State Badge */}
       {currentState !== 0 && (
