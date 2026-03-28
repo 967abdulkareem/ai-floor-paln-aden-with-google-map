@@ -100,7 +100,7 @@ export default function RequirementsForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ streetSide, streetWidth, rooms, includeDiwan, includeGarden, includeOffice: false, userName });
+    onSubmit({ streetSide, streetWidth, rooms, includeDiwan, includeGarden, includeOffice: false });
   };
 
   const isStreetWidthValid = streetWidth > 0;
