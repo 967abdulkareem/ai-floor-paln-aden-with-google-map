@@ -32,7 +32,7 @@ export interface FloorPlanFormData {
   streetWidth: number;
   rooms: number;
   includeDiwan: boolean;
-  userName: string;
+  
   areaM2: number;
 }
 

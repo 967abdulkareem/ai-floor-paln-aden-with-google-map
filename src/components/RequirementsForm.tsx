@@ -228,15 +228,6 @@ export default function RequirementsForm({
         </div>
       )}
 
-      {/* Name */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Your Name / الاسم (optional)</label>
-        <Input
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          placeholder="For the title block of your floor plan"
-        />
-      </div>
 
       {/* State Badge */}
       {currentState !== 0 && (
