@@ -10,6 +10,7 @@ interface TrialResultProps {
   prompt: string;
   polygonSVG: string;
   vertexCount: number;
+  longestSideAngleDeg: number;
   onReset: () => void;
 }
 
@@ -19,6 +20,7 @@ export default function TrialResult({
   prompt,
   polygonSVG,
   vertexCount,
+  longestSideAngleDeg,
   onReset,
 }: TrialResultProps) {
   const [isGenerating, setIsGenerating] = useState(true);
@@ -27,37 +29,57 @@ export default function TrialResult({
   const [showPrompt, setShowPrompt] = useState(false);
   const [editablePrompt, setEditablePrompt] = useState(prompt);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [rotateImage, setRotateImage] = useState(false);
 
   const runGeneration = async (customPrompt?: string) => {
     setIsGenerating(true);
     setGeneratedImageUrl(null);
     setError(null);
 
-   const geminiKey = import.meta.env.VITE_GEMINI_KEY;
-if (!geminiKey) throw new Error("Gemini API key not set in secrets.");
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      setError("Gemini API key not configured. Add VITE_GEMINI_API_KEY to your environment variables.");
+      setIsGenerating(false);
+      return;
+    }
 
-const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiKey}`,
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      instances: [{ prompt: promptToSend }],
-      parameters: { sampleCount: 1 }
-    }),
-  }
-);
+    const promptToSend = customPrompt ?? editablePrompt;
+    console.log("[TrialResult] Sending prompt to Gemini directly:\n", promptToSend);
 
-const data = await response.json();
+    try {
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptToSend }] }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          }),
+        }
+      );
 
-if (!response.ok) {
-  throw new Error(data.error?.message || "Gemini generation failed");
-}
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || "Gemini API error");
+      }
 
-const base64 = data.predictions?.[0]?.bytesBase64Encoded;
-if (!base64) throw new Error("No image returned. Please try again.");
-setGeneratedImageUrl(`data:image/png;base64,${base64}`);
+      const data = await response.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
 
+      let imageBase64: string | null = null;
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      if (!imageBase64) throw new Error("No image returned. Please try again.");
+      setGeneratedImageUrl(imageBase64);
     } catch (err: any) {
       setError(err.message || "Generation failed. Please try again.");
     } finally {
@@ -72,7 +94,6 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
   }, []);
 
   const handleRegenerate = () => runGeneration();
-
   const handleRegenerateWithEditedPrompt = () => runGeneration(editablePrompt);
 
   const handleDownloadPNG = () => {
@@ -100,8 +121,6 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
   if (isGenerating) {
     return (
       <div className="max-w-3xl mx-auto px-4 space-y-6">
-
-        {/* Polygon preview shown during loading */}
         {polygonSVG && (
           <Card>
             <CardHeader>
@@ -118,7 +137,6 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
             </CardContent>
           </Card>
         )}
-
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
           <Loader2 className="h-12 w-12 text-primary animate-spin" />
           <div className="space-y-1 text-center">
@@ -134,8 +152,7 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
   // --- Results State ---
   return (
     <div className="max-w-3xl mx-auto px-4 space-y-6">
-
-      {/* 1. Polygon Preview */}
+      {/* Polygon Preview */}
       {polygonSVG && (
         <Card>
           <CardHeader>
@@ -153,7 +170,7 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
         </Card>
       )}
 
-      {/* 2. Generated Floor Plan */}
+      {/* Floor Plan */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">
@@ -163,12 +180,23 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
         <CardContent className="space-y-4">
           {generatedImageUrl ? (
             <>
-              <img
-                src={generatedImageUrl}
-                alt="AI-generated floor plan"
-                className="w-full rounded-md border cursor-zoom-in"
-                onClick={() => setLightboxOpen(true)}
-              />
+              <div className="flex justify-end mb-1">
+                <button
+                  onClick={() => setRotateImage((r) => !r)}
+                  className="text-xs text-muted-foreground border rounded px-2 py-1 hover:bg-accent transition"
+                >
+                  {rotateImage ? "↩ Reset Rotation" : "↻ Match Polygon Angle"}
+                </button>
+              </div>
+              <div className="w-full overflow-hidden rounded-md border bg-white flex items-center justify-center">
+                <img
+                  src={generatedImageUrl}
+                  alt="AI-generated floor plan"
+                  className="max-w-full cursor-zoom-in transition-transform duration-300"
+                  style={rotateImage ? { transform: `rotate(${longestSideAngleDeg}deg)` } : undefined}
+                  onClick={() => setLightboxOpen(true)}
+                />
+              </div>
               <p className="text-xs text-muted-foreground text-center">
                 Click image to view full screen
               </p>
@@ -180,7 +208,6 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
             </div>
           )}
 
-          {/* Info summary */}
           <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm bg-accent/50 rounded-lg p-3">
             <p><span className="font-semibold">Area:</span> {formData.areaM2.toFixed(1)} m²</p>
             <p><span className="font-semibold">Street:</span> {formData.streetSide}</p>
@@ -196,62 +223,30 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
         </CardContent>
       </Card>
 
-      {/* 3. Three Action Buttons */}
+      {/* Three Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
-
-        {/* Regenerate */}
-        <Button
-          size="lg"
-          variant="outline"
-          className="flex-1"
-          onClick={handleRegenerate}
-          disabled={isGenerating}
-        >
+        <Button size="lg" variant="outline" className="flex-1" onClick={handleRegenerate} disabled={isGenerating}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Regenerate / إعادة التوليد
         </Button>
-
-        {/* See & Edit Prompt */}
-        <Button
-          size="lg"
-          variant="secondary"
-          className="flex-1"
-          onClick={() => setShowPrompt(!showPrompt)}
-        >
+        <Button size="lg" variant="secondary" className="flex-1" onClick={() => setShowPrompt(!showPrompt)}>
           <FileCode2 className="h-4 w-4 mr-2" />
           {showPrompt ? "Hide Prompt" : "See Prompt / عرض الأمر"}
-          {showPrompt
-            ? <ChevronUp className="h-4 w-4 ml-2" />
-            : <ChevronDown className="h-4 w-4 ml-2" />
-          }
+          {showPrompt ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
         </Button>
-
-        {/* Generate CAD File */}
-        <Button
-          size="lg"
-          className="flex-1"
-          onClick={handleExportCAD}
-          disabled={!generatedImageUrl}
-        >
+        <Button size="lg" className="flex-1" onClick={handleExportCAD} disabled={!generatedImageUrl}>
           <Download className="h-4 w-4 mr-2" />
           CAD File / ملف CAD
         </Button>
-
       </div>
 
-      {/* Download PNG — separate smaller button */}
       {generatedImageUrl && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full text-muted-foreground"
-          onClick={handleDownloadPNG}
-        >
+        <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={handleDownloadPNG}>
           <Download className="h-3 w-3 mr-1" /> Download PNG
         </Button>
       )}
 
-      {/* 4. Prompt Editor — expands when "See Prompt" is clicked */}
+      {/* Prompt Editor */}
       {showPrompt && (
         <Card className="border-dashed">
           <CardHeader>
@@ -260,29 +255,16 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Edit the prompt below and click "Regenerate with Edit" to try your custom version.
-            </p>
             <textarea
               value={editablePrompt}
               onChange={(e) => setEditablePrompt(e.target.value)}
               className="w-full h-64 text-xs font-mono border rounded-md p-3 bg-muted/30 resize-y focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={handleRegenerateWithEditedPrompt}
-                disabled={isGenerating}
-              >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Regenerate with Edit
+              <Button size="sm" className="flex-1" onClick={handleRegenerateWithEditedPrompt} disabled={isGenerating}>
+                <RefreshCw className="h-3 w-3 mr-1" /> Regenerate with Edit
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditablePrompt(prompt)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setEditablePrompt(prompt)}>
                 Reset to Original
               </Button>
             </div>
@@ -290,17 +272,11 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
         </Card>
       )}
 
-      {/* 5. Back button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onReset}
-        className="w-full text-muted-foreground"
-      >
+      <Button variant="ghost" size="sm" onClick={onReset} className="w-full text-muted-foreground">
         ← Back to Editor / العودة للمحرر
       </Button>
 
-      {/* 6. Lightbox */}
+      {/* Lightbox */}
       {lightboxOpen && generatedImageUrl && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -311,12 +287,9 @@ setGeneratedImageUrl(`data:image/png;base64,${base64}`);
             alt="Floor plan fullscreen"
             className="max-w-full max-h-full rounded-lg shadow-2xl"
           />
-          <p className="absolute bottom-6 text-white text-sm opacity-70">
-            Click anywhere to close
-          </p>
+          <p className="absolute bottom-6 text-white text-sm opacity-70">Click anywhere to close</p>
         </div>
       )}
-
     </div>
   );
 }
