@@ -574,6 +574,7 @@ export default function Generator() {
             prompt={generatedPrompt}
             polygonSVG={polygonSVG}
             vertexCount={coordinates.length}
+            longestSideAngleDeg={buildableRect?.longestSideAngleDeg ?? 0}
             onReset={handleReset}
           />
         ) : (
