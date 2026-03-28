@@ -36,9 +36,9 @@ export default function TrialResult({
     setGeneratedImageUrl(null);
     setError(null);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_KEY;
     if (!apiKey) {
-      setError("Gemini API key not configured. Add VITE_GEMINI_API_KEY to your environment variables.");
+      setError("Gemini API key not configured. Add VITE_GEMINI_KEY to your environment variables.");
       setIsGenerating(false);
       return;
     }
