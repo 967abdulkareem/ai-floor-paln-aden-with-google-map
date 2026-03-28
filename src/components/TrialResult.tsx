@@ -188,12 +188,18 @@ export default function TrialResult({
                   {rotateImage ? "↩ Reset Rotation" : "↻ Match Polygon Angle"}
                 </button>
               </div>
-              <div className="w-full overflow-hidden rounded-md border bg-white flex items-center justify-center">
+              <div
+                className="overflow-hidden rounded-md border flex items-center justify-center bg-white"
+                style={{ minHeight: 200 }}
+              >
                 <img
                   src={generatedImageUrl}
                   alt="AI-generated floor plan"
-                  className="max-w-full cursor-zoom-in transition-transform duration-300"
-                  style={rotateImage ? { transform: `rotate(${longestSideAngleDeg}deg)` } : undefined}
+                  className="cursor-zoom-in transition-transform duration-500"
+                  style={{
+                    transform: rotateImage ? `rotate(${longestSideAngleDeg.toFixed(1)}deg)` : "none",
+                    maxWidth: rotateImage ? "140%" : "100%",
+                  }}
                   onClick={() => setLightboxOpen(true)}
                 />
               </div>
