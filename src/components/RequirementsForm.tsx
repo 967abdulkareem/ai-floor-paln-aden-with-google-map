@@ -70,7 +70,7 @@ export default function RequirementsForm({
   const [rooms, setRooms] = useState(3);
   const [includeDiwan, setIncludeDiwan] = useState(true);
   const [includeGarden, setIncludeGarden] = useState(false);
-  const [userName, setUserName] = useState("");
+  
 
   useEffect(() => {
     if (detectedStreetSide) {
