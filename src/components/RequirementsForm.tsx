@@ -15,7 +15,7 @@ export interface FormData {
   includeDiwan: boolean;
   includeGarden: boolean;
   includeOffice: boolean;
-  userName: string;
+  
 }
 
 interface RequirementsFormProps {
