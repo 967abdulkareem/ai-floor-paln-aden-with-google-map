@@ -38,11 +38,6 @@ export default function CalculationsPanel(props: CalculationsPanelProps) {
           </div>
         ))}
       </div>
-      {props.buildableRect.adjustedForCoverage && (
-        <p className="text-sm text-orange-600 font-medium">
-          ⚠️ Coverage adjusted to 70% / تم تعديل التغطية إلى 70%
-        </p>
-      )}
     </div>
   );
 }

@@ -36,38 +36,51 @@ export default function TrialResult({
     setGeneratedImageUrl(null);
     setError(null);
 
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      setError("Gemini API key not configured. Add VITE_GEMINI_API_KEY to Lovable environment variables.");
+      setIsGenerating(false);
+      return;
+    }
+
     const promptToSend = customPrompt ?? editablePrompt;
-    console.log("[TrialResult] Sending prompt to Gemini via edge function:\n", promptToSend);
+    console.log("[TrialResult] Calling Gemini directly. Prompt:\n", promptToSend);
 
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/generate-floor-plan`,
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseKey}`,
+            "x-goog-api-key": apiKey,
           },
-          body: JSON.stringify({ prompt: promptToSend }),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptToSend }] }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          }),
         }
       );
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || "Generation failed");
+        throw new Error(err.error?.message || "Gemini API error");
       }
 
       const data = await response.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
 
-      if (data.imageData) {
-        const imageBase64 = `data:${data.imageData.mimeType};base64,${data.imageData.base64}`;
-        setGeneratedImageUrl(imageBase64);
-      } else {
-        throw new Error("No image returned. Please try again.");
+      let imageBase64: string | null = null;
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+          break;
+        }
       }
+
+      if (!imageBase64) throw new Error("No image returned. Please try again.");
+      setGeneratedImageUrl(imageBase64);
+
     } catch (err: any) {
       setError(err.message || "Generation failed. Please try again.");
     } finally {
@@ -105,7 +118,6 @@ export default function TrialResult({
     }
   };
 
-  // --- Loading State ---
   if (isGenerating) {
     return (
       <div className="max-w-3xl mx-auto px-4 space-y-6">
@@ -137,10 +149,9 @@ export default function TrialResult({
     );
   }
 
-  // --- Results State ---
   return (
     <div className="max-w-3xl mx-auto px-4 space-y-6">
-      {/* Polygon Preview */}
+
       {polygonSVG && (
         <Card>
           <CardHeader>
@@ -158,7 +169,6 @@ export default function TrialResult({
         </Card>
       )}
 
-      {/* Floor Plan */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">
@@ -170,7 +180,7 @@ export default function TrialResult({
             <>
               <div className="flex justify-end mb-1">
                 <button
-                  onClick={() => setRotateImage((r) => !r)}
+                  onClick={() => setRotateImage(r => !r)}
                   className="text-xs text-muted-foreground border rounded px-2 py-1 hover:bg-accent transition"
                 >
                   {rotateImage ? "↩ Reset Rotation" : "↻ Match Polygon Angle"}
@@ -203,10 +213,10 @@ export default function TrialResult({
           )}
 
           <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm bg-accent/50 rounded-lg p-3">
-            <p><span className="font-semibold">Area:</span> {formData.areaM2.toFixed(1)} m²</p>
+            <p><span className="font-semibold">Plot Area:</span> {formData.areaM2.toFixed(1)} m²</p>
             <p><span className="font-semibold">Street:</span> {formData.streetSide}</p>
             <p><span className="font-semibold">Bedrooms:</span> {formData.rooms}</p>
-            <p><span className="font-semibold">Diwan:</span> {formData.includeDiwan ? "Yes" : "No"}</p>
+            <p><span className="font-semibold">Office:</span> Yes</p>
           </div>
 
           {error && (
@@ -217,7 +227,6 @@ export default function TrialResult({
         </CardContent>
       </Card>
 
-      {/* Three Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button size="lg" variant="outline" className="flex-1" onClick={handleRegenerate} disabled={isGenerating}>
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -240,7 +249,6 @@ export default function TrialResult({
         </Button>
       )}
 
-      {/* Prompt Editor */}
       {showPrompt && (
         <Card className="border-dashed">
           <CardHeader>
@@ -270,7 +278,6 @@ export default function TrialResult({
         ← Back to Editor / العودة للمحرر
       </Button>
 
-      {/* Lightbox */}
       {lightboxOpen && generatedImageUrl && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
