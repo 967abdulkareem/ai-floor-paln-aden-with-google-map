@@ -199,7 +199,7 @@ const buildOverlaySVG = (
   const rx = -rW / 2;
   const ry = -rH / 2;
 
-  const rotateDeg = -longestSideAngleDeg;
+  const rotateDeg = longestSideAngleDeg;
 
   const rectLabels = `
     <text x="${rW / 2}" y="${ry - 8}"
@@ -212,10 +212,10 @@ const buildOverlaySVG = (
   `;
 
   const streetLabels: Record<string, string> = {
-    South: `<text x="${svgW / 2}" y="${svgH - 6}" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▼ Street / الشارع</text>`,
-    North: `<text x="${svgW / 2}" y="18" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▲ Street / الشارع</text>`,
-    East:  `<text x="${svgW - 8}" y="${svgH / 2}" text-anchor="end" font-size="13" fill="#16a34a" font-weight="700">Street ▶</text>`,
-    West:  `<text x="8" y="${svgH / 2}" text-anchor="start" font-size="13" fill="#16a34a" font-weight="700">◀ Street</text>`,
+    North: `<text x="${svgW / 2}" y="${svgH - 6}" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▼ Street / الشارع</text>`,
+    South: `<text x="${svgW / 2}" y="18" text-anchor="middle" font-size="13" fill="#16a34a" font-weight="700">▲ Street / الشارع</text>`,
+    West:  `<text x="${svgW - 8}" y="${svgH / 2}" text-anchor="end" font-size="13" fill="#16a34a" font-weight="700">Street ▶</text>`,
+    East:  `<text x="8" y="${svgH / 2}" text-anchor="start" font-size="13" fill="#16a34a" font-weight="700">◀ Street</text>`,
   };
 
   const legend = `
