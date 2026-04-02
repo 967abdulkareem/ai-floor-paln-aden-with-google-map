@@ -36,50 +36,38 @@ export default function TrialResult({
     setGeneratedImageUrl(null);
     setError(null);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      setError("Gemini API key not configured. Add VITE_GEMINI_API_KEY to your environment variables.");
-      setIsGenerating(false);
-      return;
-    }
-
     const promptToSend = customPrompt ?? editablePrompt;
-    console.log("[TrialResult] Sending prompt to Gemini directly:\n", promptToSend);
+    console.log("[TrialResult] Sending prompt to Gemini via edge function:\n", promptToSend);
 
     try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent",
+        `${supabaseUrl}/functions/v1/generate-floor-plan`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
+            "Authorization": `Bearer ${supabaseKey}`,
           },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: promptToSend }] }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-          }),
+          body: JSON.stringify({ prompt: promptToSend }),
         }
       );
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error?.message || "Gemini API error");
+        throw new Error(err.error || "Generation failed");
       }
 
       const data = await response.json();
-      const parts = data.candidates?.[0]?.content?.parts || [];
 
-      let imageBase64: string | null = null;
-      for (const part of parts) {
-        if (part.inlineData?.mimeType?.startsWith("image/")) {
-          imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          break;
-        }
+      if (data.imageData) {
+        const imageBase64 = `data:${data.imageData.mimeType};base64,${data.imageData.base64}`;
+        setGeneratedImageUrl(imageBase64);
+      } else {
+        throw new Error("No image returned. Please try again.");
       }
-
-      if (!imageBase64) throw new Error("No image returned. Please try again.");
-      setGeneratedImageUrl(imageBase64);
     } catch (err: any) {
       setError(err.message || "Generation failed. Please try again.");
     } finally {
