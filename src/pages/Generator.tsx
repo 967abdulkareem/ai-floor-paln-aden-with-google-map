@@ -199,7 +199,7 @@ const buildOverlaySVG = (
   const rx = -rW / 2;
   const ry = -rH / 2;
 
-  const rotateDeg = -longestSideAngleDeg;
+  const rotateDeg = longestSideAngleDeg;
 
   const rectLabels = `
     <text x="${rW / 2}" y="${ry - 8}"
