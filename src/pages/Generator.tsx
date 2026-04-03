@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import LandMap, { type Direction8 } from "@/components/LandMapStable";
-import RequirementsForm, { type FormData } from "@/components/RequirementsForm";
+import RequirementsForm, { type FormData, type OutdoorType } from "@/components/RequirementsForm";
 import type { FloorPlanFormData } from "@/lib/api";
 import TrialResult from "@/components/TrialResult";
 import PolygonPreviewCard from "@/components/PolygonPreviewCard";
@@ -252,42 +252,59 @@ const buildOverlaySVG = (
 </svg>`;
 };
 
-// --- State Detector ---
+// --- Area Classification ---
+
+const classifyArea = (rectAreaM2: number): "micro1" | "micro2" | "small" | "medium" | "large" => {
+  if (rectAreaM2 < 40) return "micro1";
+  if (rectAreaM2 < 70) return "micro2";
+  if (rectAreaM2 < 111) return "small";
+  if (rectAreaM2 < 190) return "medium";
+  return "large";
+};
+
+type DesignState =
+  | "micro1"
+  | "micro2"
+  | "small_front_yard"
+  | "small_no_outdoor"
+  | "medium_front_yard"
+  | "medium_courtyard"
+  | "medium_no_outdoor"
+  | "large_front_yard"
+  | "large_courtyard"
+  | "large_no_outdoor"
+  | "blocked_courtyard_small";
 
 const detectState = (
-  landAreaM2: number,
-  includeDiwan: boolean,
-  includeGarden: boolean
-): number | "blocked_western" | "blocked_toosmall" => {
-  const hasArea = landAreaM2 >= 110;
+  rectAreaM2: number,
+  outdoorType: OutdoorType
+): DesignState => {
+  const cls = classifyArea(rectAreaM2);
 
-  if (hasArea && includeDiwan && includeGarden) return 1;
-  if (hasArea && includeDiwan && !includeGarden) return 2;
-  if (hasArea && !includeDiwan && !includeGarden) return 3;
-  if (!hasArea && includeDiwan && includeGarden) return 4;
-  if (!hasArea && !includeDiwan && includeGarden) return "blocked_toosmall";
-  if (!hasArea && includeDiwan && !includeGarden) return 5;
-  if (!hasArea && !includeDiwan && !includeGarden) return 6;
-  if (hasArea && !includeDiwan && includeGarden) return "blocked_western";
+  if (cls === "micro1") return "micro1";
+  if (cls === "micro2") return "micro2";
 
-  return 6;
+  if (cls === "small") {
+    if (outdoorType === "courtyard") return "blocked_courtyard_small";
+    if (outdoorType === "front_yard") return "small_front_yard";
+    return "small_no_outdoor";
+  }
+
+  if (cls === "medium") {
+    if (outdoorType === "front_yard") return "medium_front_yard";
+    if (outdoorType === "courtyard") return "medium_courtyard";
+    return "medium_no_outdoor";
+  }
+
+  if (outdoorType === "front_yard") return "large_front_yard";
+  if (outdoorType === "courtyard") return "large_courtyard";
+  return "large_no_outdoor";
 };
 
-// --- 6 Prompt Builder ---
-
-const stateLabels: Record<string | number, string> = {
-  1: "Full Home + Office + Garden",
-  2: "Full Home + Guest Office",
-  3: "Two Residential Flats",
-  4: "Two-Floor + Office + Garden",
-  5: "Two-Floor + Guest Office",
-  6: "Studio",
-  "blocked_western": "⚠️ Not available",
-  "blocked_toosmall": "⚠️ Not available",
-};
+// --- Prompt Builder ---
 
 const buildPromptForState = (
-  state: number,
+  state: string,
   rectWidthM: number,
   rectDepthM: number,
   streetSide: string,
@@ -301,124 +318,156 @@ Building footprint: ${rectWidthM.toFixed(1)}m wide x ${rectDepthM.toFixed(1)}m d
 The ${streetSide} side is the street side — main entrance must face the ${streetSide}.
 North arrow in the corner. Scale bar at the bottom.
 On the south-facing wall, draw small filled rectangles to represent louvre shading elements.
-Include a staircase for future vertical expansion — place it outside the building footprint if interior space is limited.
 Furniture is not necessary.`;
+
+  const officeBlock = `
+- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
+- Entrance Corridor: small private hall separating the guest office from the rest of the house.
+- Guest WC: adjacent to the corridor. For guests only — not connected to family areas.`;
 
   switch (state) {
 
-    case 1:
+    case "micro1":
       return `${base}
 
-ROOMS:
-- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street. Connected to the rest of the house through one door only.
-- Entrance Corridor: small hall separating the guest office from the rest of the house.
-- Guest WC: adjacent to the guest office. For guests only.
+SINGLE STUDIO UNIT (very small plot):
+- One open living and sleeping space
+- Closed kitchen
+- Bathroom
+- Entrance from ${streetSide} side
+- Staircase to roof for future expansion, placed outside if needed.
+Label: "Studio / استوديو". Efficient layout, no wasted space.`;
+
+    case "micro2":
+      return `${base}
+
+MICRO RESIDENTIAL UNIT:
+- Two rooms total. One room is immediately adjacent to the entrance (can serve as reception or second bedroom).
+- Kitchen (closed)
+- Bathroom
+- WC adjacent to the entrance room — accessible without entering private areas
+- Entrance from ${streetSide} side
+- Staircase to roof for future expansion, placed outside if needed.
+Efficient compact layout. Label all rooms clearly.`;
+
+    case "small_front_yard":
+      return `${base}
+
+TWO-FLOOR LAYOUT. AI decides room count based on available upper floor space.
+
+GROUND FLOOR:
+${officeBlock}
+- Kitchen
+- Front Yard: open bordered space on the ${streetSide} side, labeled "Front Yard / فناء أمامي". Between the street and the building entrance.
+- Staircase connecting floors (place outside footprint if needed).
+
+UPPER FLOOR:
+- Bedrooms: AI determines count based on space.
+- Bathrooms: AI decides count and placement.
+
+CULTURAL: Guest office on ground floor keeps guests away from family sleeping areas upstairs.`;
+
+    case "small_no_outdoor":
+      return `${base}
+
+TWO-FLOOR LAYOUT. AI decides room count based on available space.
+
+GROUND FLOOR:
+${officeBlock}
+- Kitchen
+- Living area
+- Staircase connecting floors (place outside footprint if needed).
+
+UPPER FLOOR:
+- Bedrooms: AI determines count.
+- Bathrooms: AI decides count and placement.
+
+CULTURAL: Staircase acts as separator — guests on ground floor, family upstairs.`;
+
+    case "medium_front_yard":
+      return `${base}
+
+SINGLE FLOOR.
+${officeBlock}
 - Living Room
 - Kitchen
 - ${bedrooms} Bedrooms (label as Bedroom 1, Bedroom 2, etc.)
 - Bathrooms: AI decides count and placement.
-- Garden: outdoor space shown as an open bordered rectangle labelled "Garden / حديقة". Accessible from the living room.
-- Staircase connecting floors shown with stair symbol.
+- Front Yard: open bordered space on the ${streetSide} side labeled "Front Yard / فناء أمامي". Between street and entrance.
+- Staircase for future vertical expansion (place outside footprint if needed).
 
-CULTURAL:
-- Guest must reach the office from the entrance without crossing any family space.
-- Entrance corridor is the privacy buffer between guest office and family area.
-- Guest WC is for guests only, separate from family bathrooms.`;
+CULTURAL: Guest must reach office from entrance without crossing family space.`;
 
-    case 2:
+    case "medium_courtyard":
       return `${base}
 
-ROOMS:
-- Guest Office: at the entrance on the ${streetSide} side. Has its own separate exterior door from the street.
-- Entrance Corridor / Waiting Hall: separates the guest office from the rest of the house. This is the privacy buffer.
-- Guest WC: accessible from the corridor only, not from the family area.
+SINGLE FLOOR with central open-air courtyard.
+${officeBlock}
 - Living Room
 - Kitchen
 - ${bedrooms} Bedrooms (label separately)
 - Bathrooms: AI decides count and placement.
-- Staircase shown with stair symbol.
+- Courtyard: open-air space in the heart of the home, surrounded by rooms. Label "Courtyard / فناء داخلي".
+- Staircase for future vertical expansion (place outside footprint if needed).
 
-CULTURAL:
-- A guest must enter the office, use the WC, and leave without seeing or entering the living room or bedrooms.
-- The corridor must physically block the line of sight from the entrance to the family area.`;
+CULTURAL: Guest office separated from family by corridor. Courtyard serves family privacy.`;
 
-    case 3:
+    case "medium_no_outdoor":
       return `${base}
 
-TWO SMALL RESIDENTIAL FLATS side by side.
-The AI divides the total area wisely and equally between the two flats.
-
-Flat A (left side):
-- Bedrooms: AI decides based on available space
-- Living area
+SINGLE FLOOR, fully interior.
+${officeBlock}
+- Living Room
 - Kitchen
-- Bathroom
-- Private entrance from the ${streetSide} side
-
-Flat B (right side):
-- Bedrooms: AI decides based on available space
-- Living area
-- Kitchen
-- Bathroom
-- Private entrance from the ${streetSide} side
-
-Shared staircase between the two flats leading to roof for future vertical expansion. Place outside between units if space is tight.
-Label clearly: "Flat A / شقة أ", "Flat B / شقة ب", "Staircase / سلم".`;
-
-    case 4:
-      return `${base}
-
-TWO FLOORS. AI decides room count based on available space.
-
-GROUND FLOOR:
-- Guest Office: at entrance on ${streetSide} side. Separate exterior door.
-- Entrance Corridor: separates guest office from rest of ground floor.
-- Guest WC: adjacent to corridor.
-- Kitchen
-- Garden: outdoor space shown as open bordered rectangle labelled "Garden / حديقة". Accessible from inside. Not accessible from the street directly.
-
-UPPER FLOOR:
-- Bedrooms: AI determines count.
+- ${bedrooms} Bedrooms (label separately)
 - Bathrooms: AI decides count and placement.
-- Staircase connecting floors.
+- Staircase for future vertical expansion (place outside footprint if needed).
 
-CULTURAL:
-- Guest office on ground floor keeps guests away from family sleeping areas upstairs.
-- Garden is a private family space, not visible or accessible from the street.`;
+CULTURAL: Guest must enter office and leave without crossing any family space.`;
 
-    case 5:
+    case "large_front_yard":
       return `${base}
 
-TWO FLOORS. AI decides room count based on available space.
-
-GROUND FLOOR:
-- Guest Office: at entrance on ${streetSide} side. Separate exterior door.
-- Entrance Corridor: privacy buffer between guest office and rest of house.
-- Guest WC
+LARGE SINGLE FLOOR HOME.
+${officeBlock}
+- Living Room (large)
 - Kitchen
-- Staircase: positioned as a physical separator between the guest area and family area above.
-
-UPPER FLOOR:
-- Bedrooms: AI determines count.
+- ${bedrooms} Bedrooms (label separately)
 - Bathrooms: AI decides count and placement.
+- Front Yard: generous open space on the ${streetSide} side labeled "Front Yard / فناء أمامي".
+- Staircase for future vertical expansion (place outside footprint if needed).
 
-CULTURAL:
-- Guests stay on the ground floor. Family retreats upstairs.
-- No direct visual connection from entrance to any bedroom.`;
+CULTURAL: Guest office is the first space encountered from the street. Family areas are deep inside the home.`;
 
-    case 6:
+    case "large_courtyard":
+      return `${base}
+
+LARGE SINGLE FLOOR HOME with central courtyard.
+${officeBlock}
+- Living Room (large)
+- Kitchen
+- ${bedrooms} Bedrooms (label separately)
+- Bathrooms: AI decides count and placement.
+- Courtyard: large central open-air space at the heart of the home. Label "Courtyard / فناء داخلي". Surrounded by glass corridors.
+- Staircase for future vertical expansion (place outside footprint if needed).
+
+CULTURAL: Guest office near street entrance. Courtyard is private family space, not visible from street.`;
+
+    case "large_no_outdoor":
+      return `${base}
+
+LARGE SINGLE FLOOR HOME, fully interior.
+${officeBlock}
+- Living Room (large)
+- Kitchen
+- ${bedrooms} Bedrooms (label separately)
+- Bathrooms: AI decides count and placement.
+- Staircase for future vertical expansion (place outside footprint if needed).
+
+CULTURAL: Guest office at entrance with its own door. Family living is deep and private.`;
+
     default:
-      return `${base}
-
-SINGLE COMPACT UNIT — STUDIO:
-- Main living and sleeping space
-- Kitchen area
-- Bathroom
-- Entrance from ${streetSide} side
-- Staircase to roof access shown.
-
-Label the unit: "Studio / استوديو".
-Efficient layout. No wasted circulation space.`;
+      return `${base}\n\nGenerate a suitable residential floor plan for this plot size.`;
   }
 };
 
@@ -433,9 +482,8 @@ export default function Generator() {
 
   const [streetSide, setStreetSide] = useState<string>("South");
   const [streetWidth, setStreetWidth] = useState<number>(10);
-  const [includeDiwan, setIncludeDiwan] = useState<boolean>(true);
-  const [includeGarden, setIncludeGarden] = useState<boolean>(false);
-  const [currentState, setCurrentState] = useState<number | "blocked_western" | "blocked_toosmall">(0);
+  const [outdoorType, setOutdoorType] = useState<OutdoorType>("front_yard");
+  const [currentState, setCurrentState] = useState<string>("");
 
   const [buildableRect, setBuildableRect] = useState<{
     rectWidthM: number;
@@ -448,6 +496,7 @@ export default function Generator() {
   } | null>(null);
   const [buildingStats, setBuildingStats] = useState<{ maxHeightM: number; maxFloors: number }>({ maxHeightM: 0, maxFloors: 0 });
   const [isSmallPlot, setIsSmallPlot] = useState<boolean>(false);
+  const [isMicroPlot, setIsMicroPlot] = useState<boolean>(false);
   const [polygonSVG, setPolygonSVG] = useState<string>('');
 
   const handlePolygonComplete = useCallback((coords: [number, number][], area: number, _streetSideDetected: Direction8) => {
@@ -469,8 +518,9 @@ export default function Generator() {
     setBuildableRect(null);
     setBuildingStats({ maxHeightM: 0, maxFloors: 0 });
     setIsSmallPlot(false);
+    setIsMicroPlot(false);
     setPolygonSVG('');
-    setCurrentState(0);
+    setCurrentState("");
   }, []);
 
   // Run all calculations when inputs change
@@ -487,22 +537,25 @@ export default function Generator() {
     const maxFloors = Math.floor(maxHeightM / 3.5);
     setBuildingStats({ maxHeightM, maxFloors });
 
-    const small = rect.landAreaM2 < 110;
-    setIsSmallPlot(small);
+    const cappedArea = Math.min(rect.rectAreaM2, 300);
+    const cls = classifyArea(cappedArea);
+    setIsSmallPlot(cls === "small");
+    setIsMicroPlot(cls === "micro1" || cls === "micro2");
 
     const svg = buildOverlaySVG(coordsArr, rect.rectWidthM, rect.rectDepthM, streetSide, rect.longestSideAngleDeg);
     setPolygonSVG(svg);
   }, [coordinates, streetSide, streetWidth]);
 
-  // Update state whenever toggles or area change
+  // Update state whenever outdoor type or area change
   useEffect(() => {
     if (!buildableRect) {
-      setCurrentState(0);
+      setCurrentState("");
       return;
     }
-    const state = detectState(buildableRect.landAreaM2, includeDiwan, includeGarden);
+    const cappedArea = Math.min(buildableRect.rectAreaM2, 300);
+    const state = detectState(cappedArea, outdoorType);
     setCurrentState(state);
-  }, [buildableRect, includeDiwan, includeGarden]);
+  }, [buildableRect, outdoorType]);
 
   const handleStreetSideChange = useCallback((side: string) => {
     setStreetSide(side);
@@ -512,27 +565,23 @@ export default function Generator() {
     setStreetWidth(width);
   }, []);
 
-  const handleDiwanChange = useCallback((value: boolean) => {
-    setIncludeDiwan(value);
-  }, []);
-
-  const handleGardenChange = useCallback((value: boolean) => {
-    setIncludeGarden(value);
+  const handleOutdoorChange = useCallback((value: OutdoorType) => {
+    setOutdoorType(value);
   }, []);
 
   const handleSubmit = (data: FormData) => {
     if (!buildableRect) return;
 
-    const state = detectState(buildableRect.landAreaM2, data.includeDiwan, data.includeGarden);
+    const rectArea = buildableRect.rectAreaM2;
+    const cappedArea = Math.min(rectArea, 300);
+
+    const state = detectState(cappedArea, data.outdoorType);
     setCurrentState(state);
 
-    if (state === "blocked_western" || state === "blocked_toosmall") {
-      // Don't generate — blocked states are handled in the UI
-      return;
-    }
+    if (state === "blocked_courtyard_small") return;
 
     const prompt = buildPromptForState(
-      state as number,
+      state,
       buildableRect.rectWidthM,
       buildableRect.rectDepthM,
       data.streetSide,
@@ -544,8 +593,8 @@ export default function Generator() {
       streetSide: data.streetSide,
       streetWidth: data.streetWidth,
       rooms: data.rooms,
-      includeDiwan: data.includeDiwan,
-      areaM2,
+      includeDiwan: false,
+      areaM2: cappedArea,
     });
     setShowResult(true);
   };
@@ -607,10 +656,10 @@ export default function Generator() {
                 isLoading={false}
                 detectedStreetSide={detectedStreetSide}
                 isSmallPlot={isSmallPlot}
+                isMicroPlot={isMicroPlot}
                 onStreetSideChange={handleStreetSideChange}
                 onStreetWidthChange={handleStreetWidthChange}
-                onDiwanChange={handleDiwanChange}
-                onGardenChange={handleGardenChange}
+                onOutdoorChange={handleOutdoorChange}
                 currentState={currentState}
               />
             </div>
