@@ -1,7 +1,7 @@
-# Munasib — AI Floor Plan Generator for Sana'a, Yemen
+# Munasib — AI Floor Plan Generator for Aden, Yemen
 
 ## Overview
-Munasib (مناسب) is an AI-powered web app that generates residential floor plans for Sana'a, Yemen.
+Munasib (مناسب) is an AI-powered web app that generates residential floor plans for Aden, Yemen.
 Users draw their land boundary on Google Maps, fill out requirements, and receive a floor plan PNG and DXF file.
 
 ## How can I edit this code?
